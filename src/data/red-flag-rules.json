@@ -1,0 +1,182 @@
+{
+  "emergency_terms": [
+    "chest pain",
+    "crushing chest",
+    "can't breathe",
+    "cannot breathe",
+    "difficulty breathing",
+    "not breathing",
+    "stroke",
+    "face drooping",
+    "slurred speech",
+    "unconscious",
+    "unresponsive",
+    "seizure",
+    "overdose",
+    "poisoning",
+    "suicidal",
+    "want to die",
+    "kill myself",
+    "severe bleeding",
+    "coughing blood",
+    "vomiting blood",
+    "anaphylaxis",
+    "throat closing",
+    "blue lips"
+  ],
+  "rules": [
+    {
+      "id": "RF001",
+      "name": "Chest Pain / Pressure",
+      "keywords": ["chest pain", "chest pressure", "crushing chest", "chest tightness", "pain radiating to arm", "pain radiating to jaw"],
+      "urgency_tier": "emergency",
+      "reason": "Possible acute coronary syndrome / myocardial infarction or pulmonary embolism.",
+      "icd10": "R07.9",
+      "condition_name": "Acute Coronary Syndrome"
+    },
+    {
+      "id": "RF002",
+      "name": "Severe Respiratory Distress",
+      "keywords": ["difficulty breathing", "cannot breathe", "can't breathe", "shortness of breath", "gasping", "blue lips", "throat closing"],
+      "urgency_tier": "emergency",
+      "reason": "Severe respiratory compromise or anaphylaxis.",
+      "icd10": "R06.02",
+      "condition_name": "Acute Respiratory Distress"
+    },
+    {
+      "id": "RF003",
+      "name": "Acute Neurological Deficit (Stroke Signs)",
+      "keywords": ["stroke", "face drooping", "facial drooping", "arm weakness", "slurred speech", "sudden numbness", "sudden paralysis"],
+      "urgency_tier": "emergency",
+      "reason": "High suspicion for acute ischemic or hemorrhagic stroke.",
+      "icd10": "I63.9",
+      "condition_name": "Acute Stroke"
+    },
+    {
+      "id": "RF004",
+      "name": "Anaphylaxis / Severe Allergic Reaction",
+      "keywords": ["anaphylaxis", "severe allergic reaction", "swollen tongue", "swollen lips", "hives with breathing difficulty"],
+      "urgency_tier": "emergency",
+      "reason": "Rapidly progressing systemic hypersensitivity reaction.",
+      "icd10": "T78.2XXA",
+      "condition_name": "Anaphylactic Shock"
+    },
+    {
+      "id": "RF005",
+      "name": "Uncontrolled / Severe Bleeding",
+      "keywords": ["uncontrolled bleeding", "severe bleeding", "coughing blood", "vomiting blood", "rectal bleeding severe"],
+      "urgency_tier": "emergency",
+      "reason": "Risk of hemorrhagic shock or major arterial vascular injury.",
+      "icd10": "R58",
+      "condition_name": "Hemorrhage"
+    },
+    {
+      "id": "RF006",
+      "name": "Suicidal Ideation / Crisis",
+      "keywords": ["suicidal", "want to die", "kill myself", "suicide", "self harm plan"],
+      "urgency_tier": "emergency",
+      "reason": "Immediate risk of self-harm or suicide attempt.",
+      "icd10": "R45.851",
+      "condition_name": "Suicidal Crisis"
+    },
+    {
+      "id": "RF007",
+      "name": "Severe Abdominal Pain",
+      "keywords": ["severe abdominal pain", "sudden sharp belly pain", "rigid abdomen"],
+      "urgency_tier": "emergency",
+      "reason": "Potential abdominal catastrophe (viscus perforation, appendicitis perforation, dissecting AAA).",
+      "icd10": "R10.0",
+      "condition_name": "Acute Abdomen"
+    },
+    {
+      "id": "RF008",
+      "name": "High Fever with Stiff Neck",
+      "keywords": ["high fever and stiff neck", "stiff neck fever", "fever photophobia stiff neck"],
+      "urgency_tier": "emergency",
+      "reason": "High concern for acute bacterial meningitis.",
+      "icd10": "G00.9",
+      "condition_name": "Acute Meningitis"
+    },
+    {
+      "id": "RF009",
+      "name": "Poisoning / Overdose",
+      "keywords": ["poisoning", "overdose", "ingested pills", "chemical ingestion"],
+      "urgency_tier": "emergency",
+      "reason": "Acute toxic ingestion or drug toxicity.",
+      "icd10": "T50.901A",
+      "condition_name": "Acute Poisoning / Overdose"
+    },
+    {
+      "id": "RF010",
+      "name": "Loss of Consciousness",
+      "keywords": ["unconscious", "unresponsive", "passed out", "syncope collapse"],
+      "urgency_tier": "emergency",
+      "reason": "Unexplained loss of consciousness, risk of cardiac arrhythmia or seizure.",
+      "icd10": "R55",
+      "condition_name": "Syncope / Loss of Consciousness"
+    },
+    {
+      "id": "RF011",
+      "name": "Severe Head Trauma",
+      "keywords": ["severe head injury", "head trauma vomiting", "head impact loss of consciousness"],
+      "urgency_tier": "emergency",
+      "reason": "Potential intracranial hemorrhage or traumatic brain injury.",
+      "icd10": "S06.9X0A",
+      "condition_name": "Traumatic Brain Injury"
+    },
+    {
+      "id": "RF012",
+      "name": "Sudden Vision Loss",
+      "keywords": ["sudden vision loss", "blindness sudden", "curtain over vision"],
+      "urgency_tier": "emergency",
+      "reason": "Concern for retinal artery occlusion, retinal detachment, or temporal arteritis.",
+      "icd10": "H53.13",
+      "condition_name": "Sudden Visual Loss"
+    },
+    {
+      "id": "RF013",
+      "name": "Infant Fever (< 3 Months)",
+      "keywords": ["infant fever", "baby fever 100.4", "neonate fever"],
+      "urgency_tier": "emergency",
+      "reason": "High risk of serious occult bacterial infection in neonates/young infants.",
+      "icd10": "R50.9",
+      "condition_name": "Neonatal Fever"
+    },
+    {
+      "id": "RF014",
+      "name": "Pregnancy with Severe Pain or Bleeding",
+      "keywords": ["pregnant bleeding", "pregnancy severe abdominal pain", "pregnant vaginal blood"],
+      "urgency_tier": "emergency",
+      "reason": "Possible ectopic pregnancy, placental abruption, or miscarriage.",
+      "icd10": "O20.9",
+      "condition_name": "Complicated Pregnancy Bleeding"
+    },
+    {
+      "id": "RF015",
+      "name": "High Fever > 39.4°C / Persistent 3+ Days",
+      "keywords": ["high fever", "fever 39.4", "fever 103", "persistent fever 3 days"],
+      "urgency_tier": "urgent",
+      "reason": "Potential systemic infection requiring prompt evaluation.",
+      "icd10": "R50.9",
+      "condition_name": "High / Prolonged Pyrexia"
+    },
+    {
+      "id": "RF016",
+      "name": "Worsening Productive Cough",
+      "keywords": ["productive cough", "cough yellow phlegm", "cough green phlegm", "deep chest cough"],
+      "urgency_tier": "routine",
+      "reason": "Possible lower respiratory tract infection / bronchitis / mild pneumonia.",
+      "icd10": "J20.9",
+      "condition_name": "Acute Bronchitis"
+    },
+    {
+      "id": "RF017",
+      "name": "Mild Upper Respiratory Symptoms",
+      "keywords": ["runny nose", "sneezing", "mild sore throat", "nasal congestion"],
+      "urgency_tier": "self_care",
+      "reason": "Typical viral upper respiratory infection (common cold).",
+      "icd10": "J00",
+      "condition_name": "Viral Upper Respiratory Infection"
+    }
+  ]
+}

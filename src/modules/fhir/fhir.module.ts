@@ -1,12 +1,13 @@
 import { Module } from '@nitrostack/core';
+import { FhirTools } from './fhir.tools.js';
+import { IntegrationsModule } from '../../integrations/integrations.module.js';
 
-/**
- * FHIR Patient Records Module — read-only access to synthetic (Synthea)
- * patients on public FHIR R4 servers, with base-URL failover.
- * Tools land per BUILD_PLAN.md §2.5.
- */
 @Module({
   name: 'fhir',
-  description: 'FHIR R4 patient records (synthetic data only)'
+  description: 'FHIR Patient Records module — synthetic FHIR R4 interoperability layer',
+  imports: [IntegrationsModule],
+  controllers: [FhirTools],
+  providers: [],
+  exports: [],
 })
 export class FhirModule {}

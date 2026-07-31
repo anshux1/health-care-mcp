@@ -117,6 +117,34 @@ export class HttpClientService {
 
   /** GET and parse JSON. Throws UpstreamError on exhaustion or 4xx. */
   async getJson<T = unknown>(opts: HttpRequestOptions): Promise<HttpResponse<T>> {
+    return this.execute(opts, async (response) => {
+      const text = await this.readTextCapped(response, opts.api);
+      try {
+        return JSON.parse(text) as T;
+      } catch {
+        throw new UpstreamError(
+          `${opts.api} returned non-JSON body`,
+          opts.api,
+          'INVALID_RESPONSE',
+          response.status,
+        );
+      }
+    });
+  }
+
+  /** GET raw text (e.g. PubMed EFetch XML). Same retry/timeout/caps as getJson. */
+  async getText(opts: HttpRequestOptions): Promise<HttpResponse<string>> {
+    return this.execute(opts, (response) => this.readTextCapped(response, opts.api));
+  }
+
+  /**
+   * Core request pipeline: semaphore → attempts with retry/backoff → parse.
+   * Retries only on network errors / 429 / 5xx; other 4xx fail immediately.
+   */
+  private async execute<T>(
+    opts: HttpRequestOptions,
+    parse: (response: Response) => Promise<T>,
+  ): Promise<HttpResponse<T>> {
     const release = await this.acquireSemaphore(opts);
     const startedAt = Date.now();
     const maxAttempts = 1 + (opts.maxRetries ?? 2);
@@ -155,7 +183,7 @@ export class HttpClientService {
             );
           }
 
-          const data = (await this.readJsonCapped(response, opts.api)) as T;
+          const data = await parse(response);
           return {
             data,
             meta: {
@@ -216,8 +244,8 @@ export class HttpClientService {
     }
   }
 
-  /** Enforces the 1 MB response cap before JSON parsing. */
-  private async readJsonCapped(response: Response, api: string): Promise<unknown> {
+  /** Enforces the 1 MB response cap; returns raw body text. */
+  private async readTextCapped(response: Response, api: string): Promise<string> {
     const text = await response.text();
     if (text.length > MAX_RESPONSE_BYTES) {
       throw new UpstreamError(
@@ -227,16 +255,7 @@ export class HttpClientService {
         response.status,
       );
     }
-    try {
-      return JSON.parse(text);
-    } catch {
-      throw new UpstreamError(
-        `${api} returned non-JSON body`,
-        api,
-        'INVALID_RESPONSE',
-        response.status,
-      );
-    }
+    return text;
   }
 
   /** 250ms → 1s → 4s with ±25% jitter; Retry-After honored (capped at 5s). */

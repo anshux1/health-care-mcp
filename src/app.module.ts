@@ -1,5 +1,6 @@
 import { McpApp, Module, ConfigModule } from '@nitrostack/core';
 import { SystemHealthCheck } from './health/system.health.js';
+import { ExternalApiHealthCheck } from './health/external-api.health.js';
 import { TriageModule } from './modules/triage/triage.module.js';
 import { DrugsModule } from './modules/drugs/drugs.module.js';
 import { DiagnosticsModule } from './modules/diagnostics/diagnostics.module.js';
@@ -11,20 +12,17 @@ import { IntegrationsModule } from './integrations/integrations.module.js';
 
 /**
  * Vitalis — Clinical Intelligence MCP Server
- *
- * Root application module. Wires all six clinical feature modules plus the
- * core resources/prompts module, per BUILD_PLAN.md §3.2.
- * No auto-discovery: every module must be imported here explicitly.
+ * Root application module. Wires all six clinical feature modules plus core resources/prompts and health checks.
  */
 @McpApp({
   module: AppModule,
   server: {
     name: 'vitalis',
-    version: '1.0.0'
+    version: '1.0.0',
   },
   logging: {
-    level: 'info'
-  }
+    level: 'info',
+  },
 })
 @Module({
   name: 'app',
@@ -38,11 +36,11 @@ import { IntegrationsModule } from './integrations/integrations.module.js';
     ResearchModule,
     FhirModule,
     CareModule,
-    CoreModule
+    CoreModule,
   ],
   providers: [
-    // Health Checks
     SystemHealthCheck,
-  ]
+    ExternalApiHealthCheck,
+  ],
 })
 export class AppModule {}

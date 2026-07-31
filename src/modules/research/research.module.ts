@@ -1,11 +1,14 @@
 import { Module } from '@nitrostack/core';
+import { ResearchTools } from './research.tools.js';
+import { ResearchService } from './research.service.js';
+import { IntegrationsModule } from '../../integrations/integrations.module.js';
 
-/**
- * Medical Research Module — PubMed E-utilities and ClinicalTrials.gov v2
- * search/retrieval tools. Tools land per BUILD_PLAN.md §2.4.
- */
 @Module({
   name: 'research',
-  description: 'Medical research: PubMed articles and clinical trials'
+  description: 'Medical Research module — PubMed literature & ClinicalTrials.gov search',
+  imports: [IntegrationsModule],
+  controllers: [ResearchTools],
+  providers: [ResearchService],
+  exports: [ResearchService],
 })
 export class ResearchModule {}

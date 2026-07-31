@@ -5,6 +5,7 @@
  */
 import {
   ToolDecorator as Tool,
+  Widget,
   ExecutionContext,
   Injectable,
   ControllerDecorator as Controller,
@@ -137,6 +138,7 @@ export class DrugsTools {
       },
     },
   })
+  @Widget('drug-safety-report')
   @Cache({
     ttl: 21600,
     key: (input: any) =>

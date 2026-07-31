@@ -1,5 +1,81 @@
 {
   "version": "1.0.0",
-  "widgets": [],
-  "generatedAt": "2025-01-01T00:00:00.000Z"
+  "generatedAt": "2026-07-31T22:30:00.000Z",
+  "widgets": [
+    {
+      "name": "patient-summary",
+      "route": "patient-summary",
+      "toolName": "fhir_get_patient_summary",
+      "description": "Flagship clinical summary bundle widget",
+      "examples": [
+        {
+          "name": "Alex Morgan Summary",
+          "request": { "patient_id": "12345" }
+        }
+      ]
+    },
+    {
+      "name": "triage-result",
+      "route": "triage-result",
+      "toolName": "triage_assess_symptoms",
+      "description": "Triage assessment result widget with urgency badges and red-flag chips",
+      "examples": [
+        {
+          "name": "Chest Pain Triage",
+          "request": { "symptoms": ["chest pain"], "age": 55, "sex": "male" }
+        }
+      ]
+    },
+    {
+      "name": "drug-safety-report",
+      "route": "drug-safety-report",
+      "toolName": "drug_check_interactions",
+      "description": "Drug interaction report widget with severity badges and FDA label excerpts",
+      "examples": [
+        {
+          "name": "Warfarin & Aspirin Interaction",
+          "request": { "drugs": ["warfarin", "aspirin"] }
+        }
+      ]
+    },
+    {
+      "name": "trial-list",
+      "route": "trial-list",
+      "toolName": "research_search_trials",
+      "description": "Clinical trials directory widget with phase chips and link-outs",
+      "examples": [
+        {
+          "name": "Diabetes Trials",
+          "request": { "condition": "type 2 diabetes", "status": "recruiting" }
+        }
+      ]
+    },
+    {
+      "name": "lab-result-card",
+      "route": "lab-result-card",
+      "toolName": "dx_interpret_lab_value",
+      "description": "Quantitative lab result card with reference range interpretation",
+      "examples": [
+        {
+          "name": "High HbA1c",
+          "request": { "analyte": "hba1c", "value": 8.2, "unit": "%" }
+        }
+      ]
+    },
+    {
+      "name": "med-reconciliation",
+      "route": "med-reconciliation",
+      "toolName": "care_reconcile_medications",
+      "description": "Three-column medication reconciliation diff widget",
+      "examples": [
+        {
+          "name": "Medication Reconciliation Diff",
+          "request": {
+            "list_a": ["Metformin 500mg", "Warfarin 5mg"],
+            "list_b": ["Metformin 500mg", "Warfarin 5mg", "Ibuprofen 400mg"]
+          }
+        }
+      ]
+    }
+  ]
 }

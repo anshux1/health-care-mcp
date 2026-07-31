@@ -1,11 +1,12 @@
 import { Module } from '@nitrostack/core';
+import { TriageTools } from './triage.tools.js';
+import { TriageService } from './triage.service.js';
 
-/**
- * Triage Module — rule-based symptom triage, urgency tiers, red-flag detection.
- * Offline-first by design (no external APIs). Tools land per BUILD_PLAN.md §2.1.
- */
 @Module({
   name: 'triage',
-  description: 'Symptom triage with urgency tiers and red-flag detection'
+  description: 'Triage module — rule-based clinical symptom evaluation and emergency screening',
+  controllers: [TriageTools],
+  providers: [TriageService],
+  exports: [TriageService],
 })
 export class TriageModule {}

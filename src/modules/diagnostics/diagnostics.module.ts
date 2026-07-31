@@ -1,11 +1,14 @@
 import { Module } from '@nitrostack/core';
+import { DiagnosticsTools } from './diagnostics.tools.js';
+import { DiagnosticsService } from './diagnostics.service.js';
+import { IntegrationsModule } from '../../integrations/integrations.module.js';
 
-/**
- * Diagnostics Support Module — ICD-10-CM lookup, rule-based lab interpretation,
- * patient-friendly lab explanations. Tools land per BUILD_PLAN.md §2.3.
- */
 @Module({
   name: 'diagnostics',
-  description: 'Diagnostics support: ICD-10-CM codes and lab value interpretation'
+  description: 'Diagnostics Support module — ICD-10 lookup, lab value interpretation, lab test explanations',
+  imports: [IntegrationsModule],
+  controllers: [DiagnosticsTools],
+  providers: [DiagnosticsService],
+  exports: [DiagnosticsService],
 })
 export class DiagnosticsModule {}
