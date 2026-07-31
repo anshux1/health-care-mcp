@@ -1,6 +1,6 @@
 /**
- * DiagnosticsTools — Diagnostics Support module tools (BUILD_PLAN.md §2.3).
- * Exposes dx_lookup_condition, dx_interpret_lab_value, dx_explain_lab_test, and dx_symptom_to_codes.
+ * DiagnosticsTools — Diagnostics Support module tools (BUILD_PLAN.md §2.3 & §13-S3).
+ * Exposes dx_lookup_condition, dx_lookup_icd11, dx_interpret_lab_value, dx_explain_lab_test, and dx_symptom_to_codes.
  */
 import {
   ToolDecorator as Tool,
@@ -13,11 +13,15 @@ import {
   z,
 } from '@nitrostack/core';
 import { DiagnosticsService } from './diagnostics.service.js';
+import { WhoIcdService } from '../../integrations/who-icd.service.js';
 
 @Controller('diagnostics')
-@Injectable({ deps: [DiagnosticsService] })
+@Injectable({ deps: [DiagnosticsService, WhoIcdService] })
 export class DiagnosticsTools {
-  constructor(private readonly dxService: DiagnosticsService) {}
+  constructor(
+    private readonly dxService: DiagnosticsService,
+    private readonly whoIcdService: WhoIcdService,
+  ) {}
 
   @Tool({
     name: 'lookup_condition',
@@ -43,6 +47,38 @@ export class DiagnosticsTools {
       ...result,
       _safety: {
         disclaimer: 'ICD-10-CM code lookup is for documentation support, not clinical diagnosis.',
+        urgency_tier: 'not_applicable',
+        red_flags_detected: [],
+        synthetic_data: false,
+      },
+    };
+  }
+
+  @Tool({
+    name: 'lookup_icd11',
+    description:
+      'Search condition name to get corresponding WHO ICD-11 MMS entity codes, chapter classification, and ICD-10 crosswalk.',
+    inputSchema: z.object({
+      query: z.string().min(2).max(200).describe('Condition name or search term, e.g. "type 2 diabetes"'),
+      max_results: z.number().int().min(1).max(10).default(5).describe('Max entities to return'),
+    }),
+    examples: {
+      request: { query: 'type 2 diabetes' },
+      response: {
+        results: [{ icd11_code: '5A11', title: 'Type 2 diabetes mellitus', chapter: '05 Endocrine...' }],
+        source: 'who_icd11_reference_table',
+      },
+    },
+  })
+  @Cache({ ttl: 86400, key: (input: any) => `dx_icd11:${String(input.query).toLowerCase()}:${input.max_results ?? 5}` })
+  @RateLimit({ requests: 60, window: '1m' })
+  async lookupIcd11(input: any, ctx: ExecutionContext) {
+    ctx.logger.info('dx_lookup_icd11', { query: input.query });
+    const result = await this.whoIcdService.searchIcd11(input.query, input.max_results ?? 5);
+    return {
+      ...result,
+      _safety: {
+        disclaimer: 'WHO ICD-11 classification lookup is for clinical documentation support, not automated diagnosis.',
         urgency_tier: 'not_applicable',
         red_flags_detected: [],
         synthetic_data: false,

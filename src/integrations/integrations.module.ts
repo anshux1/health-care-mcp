@@ -6,6 +6,7 @@ import { PubMedService } from './pubmed.service.js';
 import { ClinicalTrialsService } from './clinicaltrials.service.js';
 import { ClinicalTablesService } from './clinicaltables.service.js';
 import { FhirService } from './fhir.service.js';
+import { WhoIcdService } from './who-icd.service.js';
 
 /**
  * Integrations Module — outbound HTTP layer and per-API services.
@@ -21,6 +22,7 @@ import { FhirService } from './fhir.service.js';
     ClinicalTrialsService,
     ClinicalTablesService,
     FhirService,
+    WhoIcdService,
   ],
   exports: [
     HttpClientService,
@@ -30,6 +32,7 @@ import { FhirService } from './fhir.service.js';
     ClinicalTrialsService,
     ClinicalTablesService,
     FhirService,
+    WhoIcdService,
   ],
 })
 export class IntegrationsModule {}
