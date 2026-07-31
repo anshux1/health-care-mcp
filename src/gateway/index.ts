@@ -8,3 +8,5 @@ export * from './audit-log.interceptor.js';
 export * from './timing.interceptor.js';
 export * from './clinical-exception.filter.js';
 export * from './trim.pipe.js';
+export * from './metrics.store.js';
+export * from './jwt.utils.js';

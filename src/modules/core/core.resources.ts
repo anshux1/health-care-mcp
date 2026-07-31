@@ -1,6 +1,6 @@
 /**
- * CoreResources — System resources for Vitalis MCP gateway (BUILD_PLAN.md §2.7).
- * Exposes vitalis://safety-policy, vitalis://data-sources, vitalis://audit/recent.
+ * CoreResources — System resources for Vitalis MCP gateway (BUILD_PLAN.md §2.7 & §13-S8).
+ * Exposes vitalis://safety-policy, vitalis://data-sources, vitalis://audit/recent, vitalis://metrics.
  */
 import {
   ResourceDecorator as Resource,
@@ -9,11 +9,15 @@ import {
   ControllerDecorator as Controller,
 } from '@nitrostack/core';
 import { AuditStore } from '../../gateway/audit.store.js';
+import { MetricsStore } from '../../gateway/metrics.store.js';
 
 @Controller('core')
-@Injectable({ deps: [AuditStore] })
+@Injectable({ deps: [AuditStore, MetricsStore] })
 export class CoreResources {
-  constructor(private readonly auditStore: AuditStore) {}
+  constructor(
+    private readonly auditStore: AuditStore,
+    private readonly metricsStore: MetricsStore,
+  ) {}
 
   @Resource({
     uri: 'vitalis://safety-policy',
@@ -79,5 +83,16 @@ All FHIR patient records are 100% synthetic (Synthea generator) and contain ZERO
 
     const entries = this.auditStore.getRecentEntries();
     return JSON.stringify({ count: entries.length, entries }, null, 2);
+  }
+
+  @Resource({
+    uri: 'vitalis://metrics',
+    name: 'Server Telemetry & Performance Metrics',
+    description: 'Real-time telemetry stats including request counts, average latency, error rates, and memory usage.',
+    mimeType: 'application/json',
+  })
+  async getMetrics() {
+    const metrics = this.metricsStore.getMetrics();
+    return JSON.stringify(metrics, null, 2);
   }
 }
