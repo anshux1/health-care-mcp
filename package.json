@@ -6,7 +6,7 @@
   "description": "Vitalis — Clinical Intelligence MCP Server",
   "scripts": {
     "dev": "nitrostack-cli dev",
-    "build": "nitrostack-cli build",
+    "build": "nitrostack-cli build && node -e \"import('fs').then(fs => fs.cpSync('src/data', 'dist/data', {recursive: true, force: true}))\"",
     "start": "npm run build && nitrostack-cli start",
     "start:prod": "nitrostack-cli start",
     "upgrade": "nitrostack-cli upgrade",

@@ -4,11 +4,10 @@
  */
 import { Injectable } from '@nitrostack/core';
 import { ClinicalTablesService } from '../../integrations/clinicaltables.service.js';
-import { createRequire } from 'node:module';
+import { loadDataJson } from '../../data/load-json.js';
 
-const require = createRequire(import.meta.url);
-const labRangesData = require('../../data/lab-reference-ranges.json');
-const labExplanationsData = require('../../data/lab-explanations.json');
+const labRangesData = loadDataJson('lab-reference-ranges.json');
+const labExplanationsData = loadDataJson('lab-explanations.json');
 
 export type LabFlag = 'low' | 'normal' | 'high' | 'critical_low' | 'critical_high' | 'unknown';
 

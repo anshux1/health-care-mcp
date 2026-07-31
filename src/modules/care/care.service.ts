@@ -6,10 +6,9 @@ import { Injectable } from '@nitrostack/core';
 import { FhirService } from '../../integrations/fhir.service.js';
 import { PubMedService } from '../../integrations/pubmed.service.js';
 import { RxNormService } from '../../integrations/rxnorm.service.js';
-import { createRequire } from 'node:module';
+import { loadDataJson } from '../../data/load-json.js';
 
-const require = createRequire(import.meta.url);
-const apptPrepData = require('../../data/appointment-prep.json');
+const apptPrepData = loadDataJson('appointment-prep.json');
 
 @Injectable({ deps: [FhirService, PubMedService, RxNormService] })
 export class CareService {

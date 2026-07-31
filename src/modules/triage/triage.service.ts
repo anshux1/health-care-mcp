@@ -3,11 +3,10 @@
  * Embedded ruleset, deterministic computation, fail-safe defaults.
  */
 import { Injectable } from '@nitrostack/core';
-import { createRequire } from 'node:module';
+import { loadDataJson } from '../../data/load-json.js';
 
-const require = createRequire(import.meta.url);
-const redFlagData = require('../../data/red-flag-rules.json');
-const symptomMapData = require('../../data/symptom-condition-map.json');
+const redFlagData = loadDataJson('red-flag-rules.json');
+const symptomMapData = loadDataJson('symptom-condition-map.json');
 
 export type UrgencyTier = 'emergency' | 'urgent' | 'routine' | 'self_care';
 
