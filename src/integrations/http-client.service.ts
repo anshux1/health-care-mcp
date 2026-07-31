@@ -111,8 +111,14 @@ export class HttpClientService {
   private readonly sleep: SleepFn;
 
   constructor(fetchImpl?: FetchImpl, sleep?: SleepFn) {
-    this.fetchImpl = typeof fetchImpl === 'function' ? fetchImpl : ((input, init) => globalThis.fetch(input, init));
-    this.sleep = typeof sleep === 'function' ? sleep : ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    this.fetchImpl =
+      typeof fetchImpl === 'function' && fetchImpl !== (Object as unknown)
+        ? fetchImpl
+        : ((input, init) => globalThis.fetch(input, init));
+    this.sleep =
+      typeof sleep === 'function' && sleep !== (Object as unknown)
+        ? sleep
+        : ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   }
 
   /** GET and parse JSON. Throws UpstreamError on exhaustion or 4xx. */
