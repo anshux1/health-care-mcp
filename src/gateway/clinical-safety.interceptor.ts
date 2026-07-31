@@ -1,11 +1,18 @@
 /**
- * ClinicalSafetyInterceptor — Interceptor enforcing clinical safety (BUILD_PLAN.md §6.3).
- * Post-processes output: overreach rewrite, urgency escalation, disclaimer injection, synthetic-data stamp.
+ * ClinicalSafetyInterceptor — Interceptor enforcing clinical safety (BUILD_PLAN.md §6.3 & §13-S6).
+ * Post-processes output: overreach rewrite, urgency escalation, multi-language disclaimer injection, synthetic-data stamp.
+ * Supported languages: EN (English), ES (Spanish), HI (Hindi).
  * Can be toggled off via VITALIS_SAFETY_LAYER=off for demo comparison.
  */
 import { InterceptorInterface, ExecutionContext, Injectable } from '@nitrostack/core';
 import { rewriteBannedPhrases } from './banned-phrases.js';
 import { env } from '../config/env.js';
+
+export const DISCLAIMERS: Record<string, string> = {
+  en: 'For informational purposes only. Not medical advice, diagnosis, or treatment. Always seek the advice of a physician or other qualified health provider.',
+  es: 'Solo para fines informativos. No es un consejo médico, diagnóstico o tratamiento. Busque siempre el consejo de un médico u otro proveedor de salud calificado.',
+  hi: 'केवल सूचनात्मक उद्देश्यों के लिए। यह चिकित्सीय सलाह, निदान या उपचार नहीं है। व्यक्तिगत स्वास्थ्य संबंधी प्रश्नों के लिए हमेशा डॉक्टर से परामर्श लें।',
+};
 
 @Injectable()
 export class ClinicalSafetyInterceptor implements InterceptorInterface {
@@ -50,11 +57,17 @@ export class ClinicalSafetyInterceptor implements InterceptorInterface {
       }
     }
 
-    // 4. Disclaimer Injection
-    const disclaimer =
-      existingSafety.disclaimer ??
-      'For informational purposes only. Not medical advice, diagnosis, or treatment. ' +
-        'Always seek the advice of a physician or other qualified health provider.';
+    // 4. Multi-language Disclaimer Injection (EN / ES / HI)
+    const reqHeaders = (context as any).headers ?? (context as any).req?.headers ?? {};
+    const requestedLang = String(
+      reqHeaders['x-vitalis-lang'] ??
+        context.metadata?.['x-vitalis-lang'] ??
+        context.metadata?.lang ??
+        'en',
+    ).toLowerCase();
+
+    const langKey = DISCLAIMERS[requestedLang] ? requestedLang : 'en';
+    const disclaimer = existingSafety.disclaimer ?? DISCLAIMERS[langKey];
 
     // 5. Synthetic-data stamp (for fhir/care tools or when flagged)
     const isSynthetic =
@@ -63,6 +76,7 @@ export class ClinicalSafetyInterceptor implements InterceptorInterface {
 
     sanitizedResponse._safety = {
       disclaimer,
+      disclaimer_lang: langKey,
       urgency_tier: urgencyTier,
       red_flags_detected: redFlagsDetected,
       synthetic_data: isSynthetic,
