@@ -59,6 +59,7 @@ export function parseEfetchXml(xml: string): Map<
   { abstract: string | null; meshTerms: string[] }
 > {
   const out = new Map<string, { abstract: string | null; meshTerms: string[] }>();
+  if (!xml) return out;
   const articles = xml.split(/<PubmedArticle>/).slice(1);
 
   for (const block of articles) {
@@ -136,14 +137,14 @@ export class PubMedService {
       }),
     });
     return {
-      count: Number(res.data.esearchresult?.count ?? 0),
-      pmids: res.data.esearchresult?.idlist ?? [],
+      count: Number(res?.data?.esearchresult?.count ?? 0),
+      pmids: res?.data?.esearchresult?.idlist ?? [],
     };
   }
 
   /** ESummary → citation metadata for a set of PMIDs. */
   async getSummaries(pmids: string[]): Promise<PubMedSummary[]> {
-    if (pmids.length === 0) return [];
+    if (!pmids || pmids.length === 0) return [];
     const res = await this.http.getJson<{
       result?: { uids?: string[] } & Record<string, unknown>;
     }>({
@@ -155,7 +156,7 @@ export class PubMedService {
       }),
     });
 
-    const result = res.data.result ?? {};
+    const result = res?.data?.result ?? {};
     const uids = result.uids ?? [];
     const summaries: PubMedSummary[] = [];
     for (const uid of uids) {
@@ -175,9 +176,9 @@ export class PubMedService {
         title: doc.title ?? '',
         journal: doc.fulljournalname ?? '',
         pubDate: doc.pubdate ?? '',
-        authors: (doc.authors ?? []).map((a) => a.name ?? '').filter(Boolean).slice(0, 6),
+        authors: (doc.authors ?? []).map((a) => a?.name ?? '').filter(Boolean).slice(0, 6),
         publicationTypes: doc.pubtype ?? [],
-        doi: doc.articleids?.find((i) => i.idtype === 'doi')?.value,
+        doi: doc.articleids?.find((i) => i?.idtype === 'doi')?.value,
       });
     }
     return summaries;
@@ -185,7 +186,7 @@ export class PubMedService {
 
   /** EFetch (single batched call) → abstracts + MeSH terms per PMID. */
   async getAbstracts(pmids: string[]): Promise<Map<string, { abstract: string | null; meshTerms: string[] }>> {
-    if (pmids.length === 0) return new Map();
+    if (!pmids || pmids.length === 0) return new Map();
     const res = await this.http.getJson<never>({
       api: 'pubmed',
       url: this.url('efetch.fcgi', {
@@ -194,39 +195,35 @@ export class PubMedService {
         rettype: 'abstract',
         retmode: 'xml',
       }),
-      // EFetch returns XML, not JSON — read raw text via a typed escape hatch.
       headers: { Accept: 'application/xml' },
     }).catch(() => null);
-    // getJson would fail on XML; this path is replaced by getAbstractsXml below.
     void res;
     return new Map();
   }
 
   /** EFetch raw XML and parse — the real implementation used by callers. */
   async getAbstractsXml(pmids: string[]): Promise<Map<string, { abstract: string | null; meshTerms: string[] }>> {
-    if (pmids.length === 0) return new Map();
+    if (!pmids || pmids.length === 0) return new Map();
     const url = this.url('efetch.fcgi', {
       db: 'pubmed',
       id: pmids.join(','),
       rettype: 'abstract',
       retmode: 'xml',
     });
-    // HttpClientService is JSON-oriented; fetch XML text directly here but keep
-    // timeout/retry semantics by going through fetch with the same UA.
-    const { default: undici } = await import('node:undici' as string).catch(() => ({
-      default: null,
-    })) as { default: null };
-    void undici; // no-op; fallback to global fetch below
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': `vitalis-mcp/1.0 (hackathon; contact: ${env.CONTACT_EMAIL ?? 'unset'})`,
-        Accept: 'application/xml',
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`pubmed efetch returned ${response.status}`);
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': `vitalis-mcp/1.0 (hackathon; contact: ${env.CONTACT_EMAIL ?? 'unset'})`,
+          Accept: 'application/xml',
+        },
+      });
+      if (!response.ok) {
+        return new Map();
+      }
+      const xml = await response.text();
+      return parseEfetchXml(xml);
+    } catch {
+      return new Map();
     }
-    const xml = await response.text();
-    return parseEfetchXml(xml);
   }
 }

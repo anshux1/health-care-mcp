@@ -107,13 +107,13 @@ type SleepFn = (ms: number) => Promise<void>;
 @Injectable({ deps: [] })
 export class HttpClientService {
   private static readonly semaphores = new Map<string, Semaphore>();
+  private readonly fetchImpl: FetchImpl;
+  private readonly sleep: SleepFn;
 
-  constructor(
-    private readonly fetchImpl: FetchImpl = ((input, init) =>
-      globalThis.fetch(input, init)) as FetchImpl,
-    private readonly sleep: SleepFn = (ms) =>
-      new Promise((resolve) => setTimeout(resolve, ms)),
-  ) {}
+  constructor(fetchImpl?: FetchImpl, sleep?: SleepFn) {
+    this.fetchImpl = typeof fetchImpl === 'function' ? fetchImpl : ((input, init) => globalThis.fetch(input, init));
+    this.sleep = typeof sleep === 'function' ? sleep : ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  }
 
   /** GET and parse JSON. Throws UpstreamError on exhaustion or 4xx. */
   async getJson<T = unknown>(opts: HttpRequestOptions): Promise<HttpResponse<T>> {
@@ -156,6 +156,10 @@ export class HttpClientService {
       for (attempts = 1; attempts <= maxAttempts; attempts++) {
         try {
           const response = await this.fetchWithTimeout(opts);
+
+          if (!response || typeof response.status !== 'number') {
+            throw new Error(`fetch returned invalid response object`);
+          }
 
           if (response.status === 429 || response.status >= 500) {
             lastError = new UpstreamError(
@@ -230,7 +234,8 @@ export class HttpClientService {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 8_000);
     try {
-      return await this.fetchImpl(opts.url, {
+      const fetchFn = typeof this.fetchImpl === 'function' ? this.fetchImpl : globalThis.fetch;
+      return await fetchFn(opts.url, {
         method: 'GET',
         signal: controller.signal,
         headers: {
@@ -260,7 +265,7 @@ export class HttpClientService {
 
   /** 250ms → 1s → 4s with ±25% jitter; Retry-After honored (capped at 5s). */
   private retryDelayMs(attempt: number, response?: Response): number {
-    const retryAfter = response?.headers.get('retry-after');
+    const retryAfter = response?.headers?.get?.('retry-after');
     if (retryAfter) {
       const seconds = Number(retryAfter);
       if (Number.isFinite(seconds) && seconds > 0) {
