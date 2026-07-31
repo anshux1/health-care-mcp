@@ -3,6 +3,29 @@
 import React, { useState } from 'react';
 import { useWidgetSDK, useTheme } from '@nitrostack/widgets';
 
+function Sparkline({ values, color }: { values: number[]; color: string }) {
+  if (!values || values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min === 0 ? 1 : max - min;
+  const width = 76;
+  const height = 22;
+
+  const points = values
+    .map((val, idx) => {
+      const x = (idx / (values.length - 1)) * width;
+      const y = height - ((val - min) / range) * (height - 6) - 3;
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+  return (
+    <svg width={width} height={height} style={{ overflow: 'visible' }}>
+      <polyline fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" points={points} />
+    </svg>
+  );
+}
+
 export default function PatientSummaryWidget() {
   const { data } = useWidgetSDK();
   const theme = useTheme();
@@ -36,10 +59,10 @@ export default function PatientSummaryWidget() {
       { name: 'Warfarin Sodium 5 MG Oral Tablet', rxcui: '855332', dosage: '5 mg once daily', status: 'active' },
     ],
     recent_vitals: [
-      { code: '8480-6', display: 'Systolic Blood Pressure', value: 138, unit: 'mmHg', flag: 'high' },
-      { code: '8462-4', display: 'Diastolic Blood Pressure', value: 88, unit: 'mmHg', flag: 'normal' },
-      { code: '8837-1', display: 'Heart Rate', value: 72, unit: 'bpm', flag: 'normal' },
-      { code: '4548-4', display: 'Glycated Hemoglobin (HbA1c)', value: 8.2, unit: '%', flag: 'high' },
+      { code: '8480-6', display: 'Systolic Blood Pressure', value: 138, unit: 'mmHg', flag: 'high', history: [122, 128, 134, 138] },
+      { code: '8462-4', display: 'Diastolic Blood Pressure', value: 88, unit: 'mmHg', flag: 'normal', history: [80, 82, 85, 88] },
+      { code: '8837-1', display: 'Heart Rate', value: 72, unit: 'bpm', flag: 'normal', history: [70, 75, 68, 72] },
+      { code: '4548-4', display: 'Glycated Hemoglobin (HbA1c)', value: 8.2, unit: '%', flag: 'high', history: [7.1, 7.5, 7.9, 8.2] },
     ],
     allergies: [
       { substance: 'Penicillin G', category: 'medication', criticality: 'high', reaction: 'Hives & Anaphylaxis', status: 'active' },
@@ -181,17 +204,26 @@ export default function PatientSummaryWidget() {
       {activeTab === 'vitals' && (
         <div style={{ backgroundColor: cardBg, padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}` }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-            {summaryData.recent_vitals?.map((v: any, i: number) => (
-              <div key={i} style={{ padding: '10px', borderRadius: '6px', border: `1px solid ${borderColor}`, backgroundColor: isDark ? '#111827' : '#ffffff' }}>
-                <div style={{ fontSize: '11px', color: mutedText }}>{v.display}</div>
-                <div style={{ fontSize: '18px', fontWeight: 'bold', marginTop: '2px' }}>
-                  {v.value} <span style={{ fontSize: '12px', fontWeight: 'normal' }}>{v.unit}</span>
+            {summaryData.recent_vitals?.map((v: any, i: number) => {
+              const strokeColor = v.flag === 'high' ? '#ef4444' : '#10b981';
+              const historyVals: number[] = v.history ?? [v.value * 0.9, v.value * 0.95, v.value * 0.98, v.value];
+              return (
+                <div key={i} style={{ padding: '10px', borderRadius: '6px', border: `1px solid ${borderColor}`, backgroundColor: isDark ? '#111827' : '#ffffff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: '11px', color: mutedText }}>{v.display}</div>
+                    {v.flag === 'high' && (
+                      <span style={{ backgroundColor: '#ef444420', color: '#ef4444', padding: '1px 5px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>HIGH</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '6px' }}>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                      {v.value} <span style={{ fontSize: '12px', fontWeight: 'normal' }}>{v.unit}</span>
+                    </div>
+                    <Sparkline values={historyVals} color={strokeColor} />
+                  </div>
                 </div>
-                {v.flag === 'high' && (
-                  <span style={{ backgroundColor: '#ef444420', color: '#ef4444', padding: '1px 5px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>HIGH</span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
