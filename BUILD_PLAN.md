@@ -375,7 +375,7 @@ final; put base URLs in env vars so they can be overridden without code changes.
 - **Timeout:** 8 s per attempt, hard cap 20 s per tool call.
 - **Retry:** max 2 retries, exponential backoff 250 ms → 1 s → 4 s, only on network errors / 429 / 5xx. Never retry 4xx (except 429).
 - **Concurrency cap:** per-host semaphore (RxNorm 4, OpenFDA 4, NCBI 2, Trials 2, FHIR 2).
-- **Response cap:** 1 MB parsed JSON; larger → truncate + note.
+- **Response cap:** 1 MB parsed JSON; larger → typed `UpstreamError` (amended from "truncate", see §10).
 - **Headers:** `User-Agent: vitalis-mcp/1.0 (hackathon; contact: $CONTACT_EMAIL)`.
 - **Cache integration:** integration services are cache-unaware; caching lives at tool layer via `@Cache` (keeps invalidation reasoning in one place).
 - **Observability:** every outbound call logged `{ api, endpoint (query params redacted of free text), status, latency_ms, cache: n/a }` and attached to the audit record.
@@ -712,7 +712,9 @@ If a block overruns > 45 min, cut the block's "nice" item, never its "done" crit
 | Block | Tasks | Done when |
 |---|---|---|
 | **09:00–10:00** Scaffold ✅ DONE (`bb05e94`) | Delete calculator/temperature starter code; create folder tree §3.2; typed env accessor with Zod; CI workflow; `.env.example` complete | `npm run build` green with empty modules; CI runs |
-| **10:00–11:00** Integrations core | `HttpClientService` (timeout/retry/concurrency/caps) + unit tests for retry logic | Retry/backoff test passes; service injectable |
+| **10:00–11:00** Integrations core ✅ DONE | `HttpClientService` (timeout/retry/concurrency/caps) + unit tests for retry logic | Retry/backoff test passes; service injectable |
+
+> ✅ **Done** — 12/12 tests pass (`tests/unit/http-client.test.ts`). **Amendment to §4.3:** the 1 MB response cap throws typed `UpstreamError('RESPONSE_TOO_LARGE')` instead of truncating — truncated JSON is unparseable and would corrupt tool outputs; the typed error maps cleanly through the exception filter. Also: `Retry-After` header honored (capped 5s); backoff has ±25% jitter.
 | **11:00–13:00** Drugs module | `RxNormService`, `OpenFdaService`; tools 2.1–2.5; record fixtures | All 5 drug tools return live data in NitroStudio; fixtures saved |
 | **13:00–14:00** Lunch + API keys | Register OpenFDA key, NCBI key (async approval possible — do it now) | Keys in `.env` |
 | **14:00–15:30** Research module | `PubMedService` (ESearch/ESummary/EFetch XML parse), `ClinicalTrialsService`; tools 4.1–4.5 + 6.4 | PubMed + trials tools return live data |
