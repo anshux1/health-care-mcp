@@ -711,7 +711,7 @@ If a block overruns > 45 min, cut the block's "nice" item, never its "done" crit
 
 | Block | Tasks | Done when |
 |---|---|---|
-| **09:00–10:00** Scaffold | Delete calculator/temperature starter code; create folder tree §3.2; typed env accessor with Zod; CI workflow; `.env.example` complete | `npm run build` green with empty modules; CI runs |
+| **09:00–10:00** Scaffold ✅ DONE (`bb05e94`) | Delete calculator/temperature starter code; create folder tree §3.2; typed env accessor with Zod; CI workflow; `.env.example` complete | `npm run build` green with empty modules; CI runs |
 | **10:00–11:00** Integrations core | `HttpClientService` (timeout/retry/concurrency/caps) + unit tests for retry logic | Retry/backoff test passes; service injectable |
 | **11:00–13:00** Drugs module | `RxNormService`, `OpenFdaService`; tools 2.1–2.5; record fixtures | All 5 drug tools return live data in NitroStudio; fixtures saved |
 | **13:00–14:00** Lunch + API keys | Register OpenFDA key, NCBI key (async approval possible — do it now) | Keys in `.env` |
