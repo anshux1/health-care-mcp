@@ -1,9 +1,9 @@
 {
-  "name": "my-mcp-server",
+  "name": "vitalis",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "mcpppppppp",
+  "description": "Vitalis — Clinical Intelligence MCP Server",
   "scripts": {
     "dev": "nitrostack-cli dev",
     "build": "nitrostack-cli build",
