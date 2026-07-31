@@ -4,10 +4,10 @@ import React, { useState } from 'react';
 import { useWidgetSDK, useTheme } from '@nitrostack/widgets';
 
 export default function PatientSummaryWidget() {
-  const { data, isPending } = useWidgetSDK();
+  const { data } = useWidgetSDK();
   const theme = useTheme();
   const isDark = theme === 'dark';
-  const [activeTab, setActiveTab] = useState<'overview' | 'conditions' | 'meds' | 'vitals' | 'timeline'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'conditions' | 'meds' | 'vitals' | 'allergies' | 'immunizations' | 'timeline'>('overview');
 
   const bg = isDark ? '#111827' : '#ffffff';
   const cardBg = isDark ? '#1f2937' : '#f9fafb';
@@ -41,6 +41,13 @@ export default function PatientSummaryWidget() {
       { code: '8837-1', display: 'Heart Rate', value: 72, unit: 'bpm', flag: 'normal' },
       { code: '4548-4', display: 'Glycated Hemoglobin (HbA1c)', value: 8.2, unit: '%', flag: 'high' },
     ],
+    allergies: [
+      { substance: 'Penicillin G', category: 'medication', criticality: 'high', reaction: 'Hives & Anaphylaxis', status: 'active' },
+    ],
+    immunizations: [
+      { vaccine_name: 'Influenza, seasonal', date: '2024-10-15', status: 'completed' },
+      { vaccine_name: 'COVID-19 mRNA Vaccine', date: '2024-01-10', status: 'completed' },
+    ],
     recent_encounters: [
       { type: 'Outpatient Follow-up Visit', status: 'finished', period_start: '2025-01-15', reason: 'Diabetes Management' },
       { type: 'Annual Wellness Examination', status: 'finished', period_start: '2024-06-20', reason: 'Routine Checkup' },
@@ -73,21 +80,22 @@ export default function PatientSummaryWidget() {
       </div>
 
       {/* Navigation Tabs */}
-      <div style={{ display: 'flex', gap: '8px', borderBottom: `1px solid ${borderColor}`, pb: '8px', marginBottom: '16px', overflowX: 'auto' }}>
-        {(['overview', 'conditions', 'meds', 'vitals', 'timeline'] as const).map((tab) => (
+      <div style={{ display: 'flex', gap: '6px', borderBottom: `1px solid ${borderColor}`, paddingBottom: '8px', marginBottom: '16px', overflowX: 'auto' }}>
+        {(['overview', 'conditions', 'meds', 'vitals', 'allergies', 'immunizations', 'timeline'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={{
-              padding: '6px 12px',
+              padding: '6px 10px',
               borderRadius: '6px',
               border: 'none',
               backgroundColor: activeTab === tab ? primaryColor : 'transparent',
               color: activeTab === tab ? '#ffffff' : textColor,
               fontWeight: activeTab === tab ? 'bold' : 'normal',
               cursor: 'pointer',
-              fontSize: '12px',
+              fontSize: '11px',
               textTransform: 'capitalize',
+              whiteSpace: 'nowrap',
             }}
           >
             {tab}
@@ -185,6 +193,50 @@ export default function PatientSummaryWidget() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'allergies' && (
+        <div style={{ backgroundColor: cardBg, padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}` }}>
+          {summaryData.allergies && summaryData.allergies.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {summaryData.allergies.map((alg: any, i: number) => (
+                <div key={i} style={{ padding: '10px', borderRadius: '6px', border: `1px solid ${borderColor}`, backgroundColor: isDark ? '#111827' : '#ffffff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <strong style={{ fontSize: '13px' }}>{alg.substance}</strong>
+                    <span style={{ backgroundColor: '#ef444420', color: '#ef4444', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
+                      {alg.criticality ?? 'ACTIVE'}
+                    </span>
+                  </div>
+                  {alg.reaction && <div style={{ fontSize: '12px', color: mutedText, marginTop: '4px' }}>Reaction: {alg.reaction}</div>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: '12px', color: mutedText }}>No active allergy records found in FHIR profile.</div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'immunizations' && (
+        <div style={{ backgroundColor: cardBg, padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}` }}>
+          {summaryData.immunizations && summaryData.immunizations.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {summaryData.immunizations.map((imm: any, i: number) => (
+                <div key={i} style={{ padding: '10px', borderRadius: '6px', border: `1px solid ${borderColor}`, backgroundColor: isDark ? '#111827' : '#ffffff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <strong style={{ fontSize: '13px' }}>{imm.vaccine_name}</strong>
+                    <span style={{ backgroundColor: '#10b98120', color: '#10b981', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 'bold' }}>
+                      {imm.status}
+                    </span>
+                  </div>
+                  {imm.date && <div style={{ fontSize: '12px', color: mutedText, marginTop: '2px' }}>Administered: {imm.date}</div>}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: '12px', color: mutedText }}>No immunization records found.</div>
+          )}
         </div>
       )}
 

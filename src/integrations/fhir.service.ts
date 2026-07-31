@@ -57,12 +57,29 @@ export interface FhirEncounter {
   location?: string;
 }
 
+export interface FhirAllergy {
+  substance: string;
+  category?: string;
+  criticality?: string;
+  reaction?: string;
+  status: string;
+}
+
+export interface FhirImmunization {
+  vaccine_name: string;
+  date?: string;
+  status: string;
+  lot_number?: string;
+}
+
 export interface FhirAggregatedSummary {
   patient: FhirPatientSummary;
   active_conditions: FhirCondition[];
   active_medications: FhirMedication[];
   recent_vitals: FhirObservation[];
   recent_encounters: FhirEncounter[];
+  allergies?: FhirAllergy[];
+  immunizations?: FhirImmunization[];
   allergy_note: string;
   generated_at: string;
   synthetic_data: true;
@@ -332,17 +349,78 @@ export class FhirService {
     return { encounters, server_used: serverUsed };
   }
 
+  /** Get patient's allergy intolerances. */
+  async getAllergies(
+    patientId: string,
+  ): Promise<{ allergies: FhirAllergy[]; server_used: string }> {
+    const qp = new URLSearchParams({ patient: patientId });
+
+    try {
+      const { data, serverUsed } = await this.getFhir<any>(`/AllergyIntolerance?${qp.toString()}`);
+      const entries = data.entry ?? [];
+
+      const allergies: FhirAllergy[] = entries.map((e: any) => {
+        const a = e.resource ?? {};
+        const substanceText = a.code?.text ?? a.code?.coding?.[0]?.display ?? 'Unspecified Substance';
+        const category = (a.category ?? [])[0];
+        const reactionText = a.reaction?.[0]?.manifestation?.[0]?.text ?? a.reaction?.[0]?.manifestation?.[0]?.coding?.[0]?.display;
+
+        return {
+          substance: substanceText,
+          category,
+          criticality: a.criticality,
+          reaction: reactionText,
+          status: a.clinicalStatus?.coding?.[0]?.code ?? a.verificationStatus?.coding?.[0]?.code ?? 'active',
+        };
+      });
+
+      return { allergies, server_used: serverUsed };
+    } catch {
+      return { allergies: [], server_used: env.FHIR_BASE_URL };
+    }
+  }
+
+  /** Get patient's immunization history. */
+  async getImmunizations(
+    patientId: string,
+  ): Promise<{ immunizations: FhirImmunization[]; server_used: string }> {
+    const qp = new URLSearchParams({ patient: patientId });
+
+    try {
+      const { data, serverUsed } = await this.getFhir<any>(`/Immunization?${qp.toString()}`);
+      const entries = data.entry ?? [];
+
+      const immunizations: FhirImmunization[] = entries.map((e: any) => {
+        const imm = e.resource ?? {};
+        const vText = imm.vaccineCode?.text ?? imm.vaccineCode?.coding?.[0]?.display ?? 'Vaccine';
+
+        return {
+          vaccine_name: vText,
+          date: imm.occurrenceDateTime ?? imm.occurrenceString,
+          status: imm.status ?? 'completed',
+          lot_number: imm.lotNumber,
+        };
+      });
+
+      return { immunizations, server_used: serverUsed };
+    } catch {
+      return { immunizations: [], server_used: env.FHIR_BASE_URL };
+    }
+  }
+
   /**
    * Fan-out aggregator for patient summary bundle (feeds W5 flagship widget).
    * Uses Promise.allSettled to allow partial failures gracefully.
    */
   async getPatientSummary(patientId: string): Promise<FhirAggregatedSummary> {
-    const [patRes, condRes, medRes, obsRes, encRes] = await Promise.allSettled([
+    const [patRes, condRes, medRes, obsRes, encRes, algRes, immRes] = await Promise.allSettled([
       this.getPatient(patientId),
       this.getConditions(patientId, 'active'),
       this.getMedications(patientId, 'active'),
       this.getObservations(patientId, 'vital-signs', undefined, 10),
       this.getEncounters(patientId, 5),
+      this.getAllergies(patientId),
+      this.getImmunizations(patientId),
     ]);
 
     const sectionsFailed: string[] = [];
@@ -374,13 +452,18 @@ export class FhirService {
     const recent_encounters = encRes.status === 'fulfilled' ? encRes.value.encounters : [];
     if (encRes.status === 'rejected') sectionsFailed.push('encounters');
 
+    const allergies = algRes.status === 'fulfilled' ? algRes.value.allergies : [];
+    const immunizations = immRes.status === 'fulfilled' ? immRes.value.immunizations : [];
+
     return {
       patient,
       active_conditions,
       active_medications,
       recent_vitals,
       recent_encounters,
-      allergy_note: 'HAPI public server does not consistently populate AllergyIntolerance',
+      allergies,
+      immunizations,
+      allergy_note: allergies.length > 0 ? `${allergies.length} allergies recorded.` : 'No active allergies reported in FHIR record.',
       generated_at: new Date().toISOString(),
       synthetic_data: true,
       sections_failed: sectionsFailed,

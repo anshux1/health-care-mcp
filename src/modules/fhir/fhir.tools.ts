@@ -1,5 +1,5 @@
 /**
- * FhirTools — FHIR Patient Records module tools (BUILD_PLAN.md §2.5).
+ * FhirTools — FHIR Patient Records module tools (BUILD_PLAN.md §2.5 & §13-S2).
  * Connects to HAPI FHIR R4 synthetic patient server.
  */
 import {
@@ -228,10 +228,68 @@ export class FhirTools {
   }
 
   @Tool({
+    name: 'get_allergies',
+    description: 'Get allergy and intolerance records for a synthetic FHIR patient.',
+    inputSchema: z.object({
+      patient_id: z.string().min(1).describe('FHIR Patient Resource ID'),
+    }),
+    examples: {
+      request: { patient_id: '12345' },
+      response: {
+        allergies: [{ substance: 'Penicillin', criticality: 'high', status: 'active' }],
+      },
+    },
+  })
+  @Cache({ ttl: 600, key: (input: any) => `fhir_alg:${input.patient_id}` })
+  @RateLimit({ requests: 20, window: '1m' })
+  async getAllergies(input: any, ctx: ExecutionContext) {
+    ctx.logger.info('fhir_get_allergies', { patient_id: input.patient_id });
+    const result = await this.fhirService.getAllergies(input.patient_id);
+    return {
+      ...result,
+      _safety: {
+        disclaimer: 'FHIR data is synthetic (Synthea). Not real patient PHI.',
+        urgency_tier: 'not_applicable',
+        red_flags_detected: [],
+        synthetic_data: true,
+      },
+    };
+  }
+
+  @Tool({
+    name: 'get_immunizations',
+    description: 'Get immunization and vaccination records for a synthetic FHIR patient.',
+    inputSchema: z.object({
+      patient_id: z.string().min(1).describe('FHIR Patient Resource ID'),
+    }),
+    examples: {
+      request: { patient_id: '12345' },
+      response: {
+        immunizations: [{ vaccine_name: 'Influenza, seasonal', date: '2024-10-15', status: 'completed' }],
+      },
+    },
+  })
+  @Cache({ ttl: 600, key: (input: any) => `fhir_imm:${input.patient_id}` })
+  @RateLimit({ requests: 20, window: '1m' })
+  async getImmunizations(input: any, ctx: ExecutionContext) {
+    ctx.logger.info('fhir_get_immunizations', { patient_id: input.patient_id });
+    const result = await this.fhirService.getImmunizations(input.patient_id);
+    return {
+      ...result,
+      _safety: {
+        disclaimer: 'FHIR data is synthetic (Synthea). Not real patient PHI.',
+        urgency_tier: 'not_applicable',
+        red_flags_detected: [],
+        synthetic_data: true,
+      },
+    };
+  }
+
+  @Tool({
     name: 'get_patient_summary',
     description:
       'Get complete aggregated clinical summary bundle for a synthetic FHIR patient ' +
-      '(demographics, active conditions, active medications, recent vitals, and encounter timeline). Feeds the flagship patient-summary widget.',
+      '(demographics, active conditions, active medications, recent vitals, encounters, allergies, and immunizations). Feeds the flagship patient-summary widget.',
     inputSchema: z.object({
       patient_id: z.string().min(1).describe('FHIR Patient Resource ID'),
     }),
@@ -243,6 +301,8 @@ export class FhirTools {
         active_medications: [],
         recent_vitals: [],
         recent_encounters: [],
+        allergies: [],
+        immunizations: [],
         synthetic_data: true,
       },
     },
