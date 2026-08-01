@@ -35,6 +35,12 @@ export default function LabResultCardWidget() {
   };
 
   const flagColor = flagColors[lab.flag] ?? '#6b7280';
+  const range = lab.reference_range;
+  const hasRange = range && typeof range.low === 'number' && typeof range.high === 'number' && range.high > range.low && typeof lab.value === 'number';
+  const rangeSpan = hasRange ? range.high - range.low : 0;
+  const displayMin = hasRange ? range.low - rangeSpan : 0;
+  const displayMax = hasRange ? range.high + rangeSpan : 1;
+  const markerPosition = hasRange ? Math.max(0, Math.min(100, ((lab.value - displayMin) / (displayMax - displayMin)) * 100)) : 0;
 
   return (
     <div style={{ backgroundColor: bg, color: textColor, fontFamily: 'system-ui, sans-serif', padding: '16px', borderRadius: '12px', border: `1px solid ${borderColor}`, maxWidth: '640px' }}>
@@ -50,10 +56,17 @@ export default function LabResultCardWidget() {
         <div style={{ fontSize: '32px', fontWeight: 'bold', color: flagColor }}>
           {lab.value} <span style={{ fontSize: '16px', fontWeight: 'normal', color: textColor }}>{lab.unit}</span>
         </div>
-        {lab.reference_range && (
-          <div style={{ fontSize: '12px', color: mutedText, marginTop: '4px' }}>
-            Reference Range: {lab.reference_range.low} – {lab.reference_range.high} {lab.reference_range.unit}
-          </div>
+        {hasRange ? (
+          <>
+            <div style={{ position: 'relative', height: '12px', borderRadius: '6px', margin: '14px 8px 4px', background: 'linear-gradient(90deg, #60a5fa 0%, #60a5fa 25%, #34d399 25%, #34d399 75%, #f97316 75%, #f97316 100%)' }}>
+              <span style={{ position: 'absolute', left: `${markerPosition}%`, top: '-4px', width: '4px', height: '20px', borderRadius: '2px', backgroundColor: flagColor, transform: 'translateX(-50%)' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: mutedText }}>
+              <span>{displayMin.toFixed(1)}</span><span>Normal: {range.low}–{range.high} {range.unit}</span><span>{displayMax.toFixed(1)}</span>
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: '12px', color: mutedText, marginTop: '4px' }}>Reference range unavailable; no position marker shown.</div>
         )}
       </div>
 

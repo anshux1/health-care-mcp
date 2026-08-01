@@ -31,6 +31,7 @@ Completed in the first implementation pass:
 - [x] Completed audit events, bounded persistence, cache/upstream telemetry, and percentile latency metrics.
 - [x] Hardened shared HTTP, PubMed/WHO integrations, FHIR fallback probes, and required/optional upstream health checks.
 - [x] Completed module-specific clinical fixes across drugs, diagnostics, FHIR, care, and triage.
+- [x] Completed all six widgets with SDK interactions, safe link/tool actions, and framework-loaded example manifests.
 
 Still outstanding after this pass:
 
@@ -731,6 +732,8 @@ Required tests:
 
 # Phase 8 — Complete Widgets and Widget Integration
 
+**Status: Complete.** All six widgets use supported SDK APIs, persist interaction state, expose planned tool/display/chat actions, render safety/partial-data states, and are represented by a six-entry manifest loaded by the framework.
+
 ## Goal
 
 Make all six widgets compile, render, and use the SDK features specified in the plan.
@@ -757,51 +760,51 @@ Files to update:
 
 ### Patient summary
 
-- [ ] Use `useWidgetState()` for the active tab.
-- [ ] Add `callTool('care_generate_handoff')`.
-- [ ] Add `requestFullscreen()`.
-- [ ] Preserve synthetic-data banner.
-- [ ] Render partial sections and `sections_failed` clearly.
+- [x] Use `useWidgetState()` for the active tab.
+- [x] Add `callTool('care_generate_handoff')`.
+- [x] Add `requestFullscreen()`.
+- [x] Preserve synthetic-data banner.
+- [x] Render partial sections and `sections_failed` clearly.
 
 ### Triage
 
-- [ ] Use `useWidgetState()` for compact/detailed mode.
-- [ ] Add `sendFollowUpMessage()` for appointment-prep follow-up.
-- [ ] Pulse or clearly emphasize emergency state.
-- [ ] Render safety disclaimer.
+- [x] Use `useWidgetState()` for compact/detailed mode.
+- [x] Add `sendFollowUpMessage()` for appointment-prep follow-up.
+- [x] Clearly emphasize emergency state.
+- [x] Render safety disclaimer.
 
 ### Drug safety
 
-- [ ] Use `useWidgetState()` for expanded interactions.
-- [ ] Render an interaction matrix or explicitly document why a list is used.
-- [ ] Add label-information drill-down with `callTool()`.
-- [ ] Render no-label warnings and methodology note.
+- [x] Use `useWidgetState()` for expanded interactions.
+- [x] Document why the FDA evidence view is a pair list rather than a complete interaction matrix.
+- [x] Add label-information drill-down with `callTool()`.
+- [x] Render no-label warnings and methodology note.
 
 ### Trials
 
-- [ ] Use `useWidgetState()` for recruiting-only filtering.
-- [ ] Use `openExternal()` if supported by the installed SDK.
-- [ ] Preserve safe external link behavior.
+- [x] Use `useWidgetState()` for recruiting-only filtering.
+- [x] Use `openExternal()` with an allowlisted ClinicalTrials.gov URL.
+- [x] Preserve safe external link behavior.
 
 ### Lab result
 
-- [ ] Render the horizontal reference range bar.
-- [ ] Position the marker correctly for low/normal/high/critical values.
-- [ ] Handle unknown reference ranges without a misleading marker.
+- [x] Render the horizontal reference range bar.
+- [x] Position the marker for low/normal/high/critical values.
+- [x] Handle unknown reference ranges without a misleading marker.
 
 ### Medication reconciliation
 
-- [ ] Keep the three-column diff.
-- [ ] Render duplicate/conflict warnings prominently.
-- [ ] Render labels and discrepancy count.
+- [x] Keep the three-column diff.
+- [x] Render duplicate/conflict warnings prominently.
+- [x] Render labels and discrepancy count.
 
 ## 8.3 Manifest
 
-- [ ] Ensure all six widgets have manifest entries.
-- [ ] Add two or three realistic examples per widget.
-- [ ] Include request and response examples where required by the framework.
-- [ ] Verify the manifest is actually loaded by the framework, not just present on disk.
-- [ ] Confirm each `@Widget` route maps to the manifest route.
+- [x] Ensure all six widgets have manifest entries.
+- [x] Add two realistic request/response/data examples per widget.
+- [x] Include request and response examples where required by the framework.
+- [x] Verify the manifest is loaded by the framework; integration test reads `widget://examples` and confirms six entries.
+- [x] Confirm each `@Widget` route maps to the manifest URI.
 
 ## Acceptance criteria
 

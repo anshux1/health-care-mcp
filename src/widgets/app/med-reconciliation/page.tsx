@@ -47,6 +47,10 @@ export default function MedReconciliationWidget() {
         </div>
       )}
 
+      {recon.duplicate_detection_note && (
+        <div style={{ color: mutedText, fontSize: '10px', marginBottom: '10px' }}>{recon.duplicate_detection_note}</div>
+      )}
+
       {/* 3-Column Diff */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
         {/* Continued */}

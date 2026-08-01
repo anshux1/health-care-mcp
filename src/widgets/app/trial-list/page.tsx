@@ -1,12 +1,13 @@
 'use client';
 
 import React from 'react';
-import { useWidgetSDK, useTheme } from '@nitrostack/widgets';
+import { useWidgetSDK, useTheme, useWidgetState } from '@nitrostack/widgets';
 
 export default function TrialListWidget() {
-  const { getToolOutput } = useWidgetSDK();
+  const { getToolOutput, openExternal } = useWidgetSDK();
   const data = getToolOutput<any>();
   const theme = useTheme();
+  const [widgetState, setWidgetState] = useWidgetState(() => ({ recruitingOnly: false }));
   const isDark = theme === 'dark';
 
   const bg = isDark ? '#111827' : '#ffffff';
@@ -32,15 +33,22 @@ export default function TrialListWidget() {
     ],
   };
 
+  const safeTrialUrl = (url: unknown): url is string => typeof url === 'string' && /^https:\/\/clinicaltrials\.gov\//i.test(url);
+  const visibleTrials = trialsData.trials?.filter((trial: any) => !widgetState?.recruitingOnly || trial.overall_status === 'RECRUITING') ?? [];
+
   return (
     <div style={{ backgroundColor: bg, color: textColor, fontFamily: 'system-ui, sans-serif', padding: '16px', borderRadius: '12px', border: `1px solid ${borderColor}`, maxWidth: '640px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
         <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>Clinical Trials Directory</h3>
-        <span style={{ fontSize: '12px', color: mutedText }}>Found {trialsData.total_count} studies</span>
+        <span style={{ fontSize: '12px', color: mutedText }}>Showing {visibleTrials.length} of {trialsData.total_count} studies</span>
       </div>
+      <label style={{ display: 'inline-flex', gap: '6px', alignItems: 'center', fontSize: '11px', marginBottom: '12px' }}>
+        <input type="checkbox" checked={Boolean(widgetState?.recruitingOnly)} onChange={(event) => setWidgetState({ ...widgetState, recruitingOnly: event.target.checked })} />
+        Recruiting only
+      </label>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {trialsData.trials?.map((trial: any, idx: number) => {
+        {visibleTrials.map((trial: any, idx: number) => {
           const isRecruiting = trial.overall_status === 'RECRUITING';
           return (
             <div key={idx} style={{ backgroundColor: cardBg, padding: '14px', borderRadius: '8px', border: `1px solid ${borderColor}` }}>
@@ -61,17 +69,18 @@ export default function TrialListWidget() {
                 Sponsor: {trial.lead_sponsor ?? 'Unspecified'} • Start: {trial.start_date ?? 'N/A'}
               </div>
 
-              <a
-                href={trial.url}
-                target="_blank"
-                rel="noreferrer"
-                style={{ display: 'inline-block', color: '#2563eb', fontSize: '12px', fontWeight: '600', textDecoration: 'none' }}
-              >
-                View Protocol on ClinicalTrials.gov →
-              </a>
+              {safeTrialUrl(trial.url) && (
+                <button
+                  onClick={() => openExternal(trial.url)}
+                  style={{ display: 'inline-block', color: '#2563eb', background: 'transparent', border: 0, padding: 0, fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+                >
+                  View Protocol on ClinicalTrials.gov →
+                </button>
+              )}
             </div>
           );
         })}
+        {visibleTrials.length === 0 && <div style={{ color: mutedText, fontSize: '12px' }}>No trials match this filter.</div>}
       </div>
     </div>
   );

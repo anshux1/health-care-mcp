@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useWidgetSDK, useTheme } from '@nitrostack/widgets';
+import { useWidgetSDK, useTheme, useWidgetState } from '@nitrostack/widgets';
 
 function Sparkline({ values, color }: { values: number[]; color: string }) {
   if (!values || values.length < 2) return null;
@@ -27,11 +27,15 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
 }
 
 export default function PatientSummaryWidget() {
-  const { getToolOutput } = useWidgetSDK();
+  const { getToolOutput, callTool, requestFullscreen } = useWidgetSDK();
   const data = getToolOutput<any>();
   const theme = useTheme();
+  const [widgetState, setWidgetState] = useWidgetState(() => ({ activeTab: 'overview' }));
+  const [handoff, setHandoff] = useState<any>(null);
+  const [handoffLoading, setHandoffLoading] = useState(false);
   const isDark = theme === 'dark';
-  const [activeTab, setActiveTab] = useState<'overview' | 'conditions' | 'meds' | 'vitals' | 'allergies' | 'immunizations' | 'timeline'>('overview');
+  const activeTab = (widgetState?.activeTab ?? 'overview') as 'overview' | 'conditions' | 'meds' | 'vitals' | 'allergies' | 'immunizations' | 'timeline';
+  const setActiveTab = (tab: typeof activeTab) => setWidgetState({ ...widgetState, activeTab });
 
   const bg = isDark ? '#111827' : '#ffffff';
   const cardBg = isDark ? '#1f2937' : '#f9fafb';
@@ -80,6 +84,19 @@ export default function PatientSummaryWidget() {
   };
 
   const p = summaryData.patient ?? {};
+  const sectionsFailed: string[] = summaryData.sections_failed ?? [];
+  const requestHandoff = async () => {
+    if (!p.fhir_id || handoffLoading) return;
+    setHandoffLoading(true);
+    try {
+      const response = await callTool('care_generate_handoff', { patient_id: p.fhir_id, format: 'sbar' });
+      setHandoff(response.structuredContent ?? JSON.parse(response.result));
+    } catch {
+      setHandoff({ error: 'Unable to generate handoff. Please try again.' });
+    } finally {
+      setHandoffLoading(false);
+    }
+  };
 
   return (
     <div style={{ backgroundColor: bg, color: textColor, fontFamily: 'system-ui, sans-serif', padding: '16px', borderRadius: '12px', border: `1px solid ${borderColor}`, maxWidth: '640px' }}>
@@ -97,11 +114,22 @@ export default function PatientSummaryWidget() {
               {p.age ? `${p.age} y/o` : ''} • {p.gender} • DOB: {p.birth_date ?? 'N/A'} • MRN: {p.mrn ?? 'N/A'}
             </div>
           </div>
-          <span style={{ backgroundColor: '#2563eb20', color: primaryColor, padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600' }}>
-            FHIR R4
-          </span>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <span style={{ backgroundColor: '#2563eb20', color: primaryColor, padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: '600' }}>
+              FHIR R4
+            </span>
+            <button onClick={() => void requestFullscreen()} style={{ border: `1px solid ${borderColor}`, background: 'transparent', color: textColor, borderRadius: '5px', padding: '4px 7px', fontSize: '11px', cursor: 'pointer' }}>
+              Fullscreen
+            </button>
+          </div>
         </div>
       </div>
+
+      {sectionsFailed.length > 0 && (
+        <div style={{ backgroundColor: '#f59e0b20', color: isDark ? '#fbbf24' : '#92400e', border: '1px solid #f59e0b60', borderRadius: '8px', padding: '8px 10px', marginBottom: '12px', fontSize: '12px' }}>
+          Partial data: {sectionsFailed.join(', ')} could not be loaded.
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div style={{ display: 'flex', gap: '6px', borderBottom: `1px solid ${borderColor}`, paddingBottom: '8px', marginBottom: '16px', overflowX: 'auto' }}>
@@ -126,6 +154,19 @@ export default function PatientSummaryWidget() {
           </button>
         ))}
       </div>
+
+      {activeTab === 'overview' && (
+        <div style={{ marginBottom: '12px' }}>
+          <button onClick={() => void requestHandoff()} disabled={handoffLoading} style={{ backgroundColor: primaryColor, color: '#fff', border: 'none', borderRadius: '6px', padding: '8px 12px', fontSize: '12px', cursor: handoffLoading ? 'wait' : 'pointer' }}>
+            {handoffLoading ? 'Generating handoff…' : 'Generate SBAR handoff'}
+          </button>
+          {handoff && (
+            <pre style={{ whiteSpace: 'pre-wrap', backgroundColor: cardBg, border: `1px solid ${borderColor}`, borderRadius: '8px', padding: '10px', marginTop: '8px', fontSize: '11px' }}>
+              {handoff.error ?? JSON.stringify(handoff.sbar ?? handoff, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
 
       {/* Tab Panels */}
       {activeTab === 'overview' && (

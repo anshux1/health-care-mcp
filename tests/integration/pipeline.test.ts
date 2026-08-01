@@ -104,7 +104,21 @@ describe('clinical gateway pipeline', () => {
 
     const resources = await client.listResources();
     expect(resources.resources.map((resource) => resource.uri)).toEqual(
-      expect.arrayContaining(['vitalis://audit/recent', 'vitalis://metrics', 'health://checks']),
+      expect.arrayContaining(['vitalis://audit/recent', 'vitalis://metrics', 'health://checks', 'widget://examples']),
+    );
+
+    const widgetExamples = await client.readResource({ uri: 'widget://examples' });
+    const widgetPayload = JSON.parse(widgetExamples.contents[0].text ?? '{}');
+    expect(widgetPayload).toMatchObject({ count: 6, loaded: true });
+    expect(widgetPayload.widgets.map((widget: any) => widget.uri)).toEqual(
+      expect.arrayContaining([
+        'ui://widget/next-patient-summary.html',
+        'ui://widget/next-triage-result.html',
+        'ui://widget/next-drug-safety-report.html',
+        'ui://widget/next-trial-list.html',
+        'ui://widget/next-lab-result-card.html',
+        'ui://widget/next-med-reconciliation.html',
+      ]),
     );
   });
 

@@ -1,12 +1,13 @@
 'use client';
 
 import React from 'react';
-import { useWidgetSDK, useTheme } from '@nitrostack/widgets';
+import { useWidgetSDK, useTheme, useWidgetState } from '@nitrostack/widgets';
 
 export default function TriageResultWidget() {
-  const { getToolOutput } = useWidgetSDK();
+  const { getToolOutput, sendFollowUpMessage } = useWidgetSDK();
   const data = getToolOutput<any>();
   const theme = useTheme();
+  const [widgetState, setWidgetState] = useWidgetState(() => ({ mode: 'detailed' }));
   const isDark = theme === 'dark';
 
   const bg = isDark ? '#111827' : '#ffffff';
@@ -38,16 +39,30 @@ export default function TriageResultWidget() {
   };
 
   const badgeStyle = tierColors[triage.urgency_tier] ?? tierColors.routine;
+  const isEmergency = triage.urgency_tier === 'emergency';
+  const compact = widgetState?.mode === 'compact';
 
   return (
     <div style={{ backgroundColor: bg, color: textColor, fontFamily: 'system-ui, sans-serif', padding: '16px', borderRadius: '12px', border: `1px solid ${borderColor}`, maxWidth: '640px' }}>
       {/* Header with Urgency Badge */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>Triage Assessment Result</h3>
-        <span style={{ backgroundColor: badgeStyle.bg, color: badgeStyle.color, padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          {triage.urgency_tier}
-        </span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', border: isEmergency ? '2px solid #ef4444' : undefined, borderRadius: '8px', padding: isEmergency ? '8px' : undefined }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold' }}>Triage Assessment Result</h3>
+          {isEmergency && <div style={{ color: '#ef4444', fontSize: '11px', fontWeight: 'bold', marginTop: '4px' }}>🚨 Emergency state — seek immediate help</div>}
+        </div>
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <button onClick={() => setWidgetState({ ...widgetState, mode: compact ? 'detailed' : 'compact' })} style={{ border: `1px solid ${borderColor}`, background: 'transparent', color: textColor, borderRadius: '5px', padding: '4px 7px', fontSize: '10px', cursor: 'pointer' }}>
+            {compact ? 'Details' : 'Compact'}
+          </button>
+          <span style={{ backgroundColor: badgeStyle.bg, color: badgeStyle.color, padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            {triage.urgency_tier}
+          </span>
+        </div>
       </div>
+
+      {triage._safety?.disclaimer && (
+        <div style={{ color: mutedText, fontSize: '11px', marginBottom: '12px' }}>{triage._safety.disclaimer}</div>
+      )}
 
       {/* Red Flag Chips if present */}
       {triage.red_flags && triage.red_flags.length > 0 && (
@@ -68,8 +83,7 @@ export default function TriageResultWidget() {
         <div style={{ fontSize: '13px', lineHeight: '1.5' }}>{triage.guidance}</div>
       </div>
 
-      {/* Possible Candidate Conditions */}
-      {triage.possible_conditions && triage.possible_conditions.length > 0 && (
+      {!compact && triage.possible_conditions && triage.possible_conditions.length > 0 && (
         <div style={{ marginBottom: '16px' }}>
           <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>Possible Associated Conditions</h4>
           <div style={{ backgroundColor: cardBg, borderRadius: '8px', border: `1px solid ${borderColor}`, overflow: 'hidden' }}>
@@ -95,8 +109,7 @@ export default function TriageResultWidget() {
         </div>
       )}
 
-      {/* Follow-up Questions */}
-      {triage.follow_up_questions && triage.follow_up_questions.length > 0 && (
+      {!compact && triage.follow_up_questions && triage.follow_up_questions.length > 0 && (
         <div style={{ backgroundColor: cardBg, padding: '12px', borderRadius: '8px', border: `1px solid ${borderColor}` }}>
           <div style={{ fontSize: '12px', fontWeight: 'bold', color: mutedText, marginBottom: '6px' }}>RECOMMENDED CLINICAL FOLLOW-UP QUESTIONS:</div>
           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', lineHeight: '1.6' }}>
@@ -106,6 +119,10 @@ export default function TriageResultWidget() {
           </ul>
         </div>
       )}
+
+      <button onClick={() => void sendFollowUpMessage('Book me an appointment-prep checklist for this triage result.')} style={{ marginTop: '12px', border: `1px solid ${borderColor}`, background: 'transparent', color: textColor, borderRadius: '6px', padding: '7px 10px', fontSize: '11px', cursor: 'pointer' }}>
+        Ask for appointment prep
+      </button>
     </div>
   );
 }
