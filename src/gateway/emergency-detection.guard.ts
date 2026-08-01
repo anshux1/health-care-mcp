@@ -4,14 +4,32 @@
  * interceptor can escalate the response.
  */
 import { Guard, ExecutionContext, Injectable } from '@nitrostack/core';
-import { createRequire } from 'node:module';
+import { loadDataJson } from '../data/load-json.js';
 
-const require = createRequire(import.meta.url);
-const redFlagData = require('../data/red-flag-rules.json') as {
-  emergency_terms?: string[];
-};
+const redFlagData = loadDataJson<{ emergency_terms?: unknown }>('red-flag-rules.json');
 
-const EMERGENCY_TERMS: string[] = redFlagData.emergency_terms ?? [];
+if (!Array.isArray(redFlagData.emergency_terms)) {
+  throw new Error(
+    '[EmergencyDetectionGuard] Fatal: red-flag-rules.json must contain an emergency_terms array.',
+  );
+}
+
+const EMERGENCY_TERMS = [...new Set(
+  redFlagData.emergency_terms.filter(
+    (term): term is string => typeof term === 'string' && term.trim().length > 0,
+  ),
+)].map((term) => term.trim().toLowerCase());
+
+if (EMERGENCY_TERMS.length === 0) {
+  throw new Error(
+    '[EmergencyDetectionGuard] Fatal: red-flag-rules.json contains no usable emergency terms.',
+  );
+}
+
+const EMERGENCY_PATTERNS = EMERGENCY_TERMS.map((term) => ({
+  term,
+  pattern: new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i'),
+}));
 
 function collectStrings(value: unknown, output: string[]): void {
   if (typeof value === 'string') {
@@ -34,12 +52,13 @@ function escapeRegExp(value: string): string {
 export function detectEmergencyTerms(value: unknown): string[] {
   const strings: string[] = [];
   collectStrings(value, strings);
-  const text = strings.join(' ').toLowerCase();
+  const text = strings.join(' ');
 
-  return EMERGENCY_TERMS.filter((term) => {
-    const pattern = new RegExp(`\\b${escapeRegExp(term.toLowerCase())}\\b`, 'i');
-    return pattern.test(text);
-  });
+  return EMERGENCY_PATTERNS.filter(({ pattern }) => pattern.test(text)).map(({ term }) => term);
+}
+
+export function getEmergencyTerms(): string[] {
+  return [...EMERGENCY_TERMS];
 }
 
 @Injectable()
@@ -51,12 +70,16 @@ export class EmergencyDetectionGuard implements Guard {
       // metadata is still available for clients that provide MCP _meta values.
       const input = (context as any).input ?? context.metadata;
       contextAny(context).emergency = {
+        ruleset_available: true,
         matched_terms: detectEmergencyTerms(input),
       };
     } catch {
       // Detection must never block care information. The safety interceptor
       // still provides the tool's ordinary safety envelope on detector failure.
-      contextAny(context).emergency = { matched_terms: [] };
+      contextAny(context).emergency = {
+        ruleset_available: true,
+        matched_terms: [],
+      };
     }
 
     return true;

@@ -31,7 +31,19 @@ export class TriageTools {
         .min(1)
         .max(20)
         .describe('List of reported symptoms, e.g. ["chest pain", "shortness of breath"]'),
-      age: z.number().int().min(0).max(120).describe('Patient age in years (decimal <1 allowed for infants)'),
+      age: z
+        .number()
+        .finite()
+        .min(0)
+        .max(120)
+        .describe('Patient age in years; decimal values such as 0.1 represent infants.'),
+      age_months: z
+        .number()
+        .int()
+        .min(0)
+        .max(1440)
+        .optional()
+        .describe('Optional precise age for infants and children, in months.'),
       sex: z.enum(['male', 'female', 'other']).describe('Biological sex / gender'),
       duration_hours: z.number().int().min(0).optional().describe('Symptom duration in hours'),
       severity: z.number().int().min(1).max(10).optional().describe('Patient-reported severity score (1-10)'),
@@ -51,10 +63,15 @@ export class TriageTools {
   @RateLimit({ requests: 120, window: '1m' })
   @UseClinicalGateway()
   async assessSymptoms(input: any, ctx: ExecutionContext) {
-    ctx.logger.info('triage_assess_symptoms', { symptoms: input.symptoms, age: input.age });
+    ctx.logger.info('triage_assess_symptoms', {
+      symptoms: input.symptoms,
+      age: input.age,
+      age_months: input.age_months,
+    });
     const assessment = this.triageService.assessSymptoms({
       symptoms: input.symptoms,
       age: input.age,
+      age_months: input.age_months,
       sex: input.sex,
       duration_hours: input.duration_hours,
       severity: input.severity,

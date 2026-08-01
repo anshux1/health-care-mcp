@@ -177,6 +177,18 @@ describe('clinical gateway pipeline', () => {
     expect(payload).toMatchObject({ error: true, code: 'SCOPE_DENIED' });
   });
 
+  it('exposes an infant-compatible triage schema through the registered MCP tool', () => {
+    const tool = server.tools.get('triage_assess_symptoms');
+    const result = tool.inputSchema.safeParse({
+      symptoms: ['fever'],
+      age: 0.1,
+      age_months: 2,
+      sex: 'female',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('detects emergency terms and escalates the final clinical response', async () => {
     const payload = parseToolResult(
       await callTool(

@@ -27,6 +27,7 @@ Completed in the first implementation pass:
 - [x] Fixed standalone widget SDK usage; widget production build now passes.
 - [x] Added unit tests for scopes, trimming, medication reconciliation, and lab units.
 - [x] Added end-to-end MCP gateway pipeline coverage for authentication, scopes, safety, timing, filters, trimming, audit logging, and protected audit-resource access.
+- [x] Hardened authentication/authorization and completed the centralized clinical safety layer with infant-safe triage input and a validated 30-rule ruleset.
 
 Still outstanding after this pass:
 
@@ -431,6 +432,8 @@ JWT is a stretch goal in the original plan, but current code already includes it
 
 # Phase 4 — Implement the Clinical Safety Layer Correctly
 
+**Status: Complete.** Emergency detection, centralized response safety, banned-phrase rewriting, infant-safe triage input, and the 30-rule red-flag ruleset are now covered by unit and gateway integration tests.
+
 ## Goal
 
 Make safety behavior centralized, deterministic, testable, and impossible for a tool to omit.
@@ -439,32 +442,32 @@ Make safety behavior centralized, deterministic, testable, and impossible for a 
 
 Update `EmergencyDetectionGuard`:
 
-- [ ] Load emergency terms safely at startup.
-- [ ] Escape terms before constructing regular expressions.
-- [ ] Use case-insensitive word-boundary matching.
-- [ ] Scan all relevant top-level string fields and arrays.
-- [ ] Scan nested objects where clinical free text may be present.
-- [ ] Include `symptoms`, `reason`, and other known clinical text fields.
-- [ ] Never block an emergency information request.
-- [ ] Record matched terms in request context.
-- [ ] Decide and document behavior if the ruleset is unavailable at runtime.
+- [x] Load and validate emergency terms safely at startup; missing/invalid rules refuse startup.
+- [x] Escape terms before constructing regular expressions.
+- [x] Use case-insensitive word-boundary matching.
+- [x] Scan all relevant top-level string fields and arrays.
+- [x] Scan nested objects where clinical free text may be present.
+- [x] Include `symptoms`, `reason`, and other known clinical text fields.
+- [x] Never block an emergency information request.
+- [x] Record matched terms in request context.
+- [x] Document fail-closed startup behavior when the ruleset is unavailable.
 
 ## 4.2 Safety interceptor
 
 Update `ClinicalSafetyInterceptor`:
 
-- [ ] Apply it to every clinical tool.
-- [ ] Recursively rewrite all string fields.
-- [ ] Preserve non-string values.
-- [ ] Always add the standard disclaimer.
-- [ ] Always add `urgency_tier`.
-- [ ] Merge detected emergency terms into `red_flags_detected`.
-- [ ] Escalate lower tiers to `emergency` when an emergency term is detected.
-- [ ] Prepend emergency guidance to user-facing guidance fields.
-- [ ] Stamp `synthetic_data: true` on FHIR and care outputs.
-- [ ] Keep research/non-clinical tools at `not_applicable` unless the tool output explicitly contains clinical urgency.
-- [ ] Make `VITALIS_SAFETY_LAYER=off` test-only behavior explicit and loud.
-- [ ] Ensure the safety toggle has observable behavior; do not rely only on manually-created tool envelopes.
+- [x] Apply it to every clinical tool.
+- [x] Recursively rewrite all string fields.
+- [x] Preserve non-string values.
+- [x] Always add the standard disclaimer.
+- [x] Always add `urgency_tier`.
+- [x] Merge detected emergency terms into `red_flags_detected`.
+- [x] Escalate lower tiers to `emergency` when an emergency term is detected.
+- [x] Prepend emergency guidance to user-facing guidance fields.
+- [x] Stamp `synthetic_data: true` on FHIR and care outputs.
+- [x] Keep research/non-clinical tools at `not_applicable` unless the tool output explicitly contains clinical urgency.
+- [x] Make `VITALIS_SAFETY_LAYER=off` test-only behavior explicit and loud.
+- [x] Make the safety toggle observable through a disabled marker in test responses and normal safety processing outside tests.
 
 ## 4.3 Banned phrase policy
 
@@ -491,13 +494,11 @@ Include tests for:
 
 Resolve the infant representation mismatch:
 
-- [ ] Either accept a decimal age in years and update the plan/schema, or
-- [ ] Accept an explicit infant age representation such as `age_months`, or
-- [ ] Use a dedicated `is_infant`/birth-age field with strict validation.
+- [x] Accept decimal age in years through the MCP schema and support optional precise `age_months` input for infants.
 
 The chosen representation must be usable through the actual MCP tool, not only through direct service unit tests.
 
-Expand the ruleset if the approximately 30-rule requirement remains mandatory. At minimum verify all required categories from the plan:
+The approximately 30-rule requirement remains mandatory and is now met with 30 validated rules. At minimum verify all required categories from the plan:
 
 - chest pain/pressure
 - respiratory distress

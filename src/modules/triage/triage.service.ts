@@ -91,6 +91,7 @@ export class TriageService {
   assessSymptoms(params: {
     symptoms: string[];
     age: number;
+    age_months?: number;
     sex: 'male' | 'female' | 'other';
     duration_hours?: number;
     severity?: number;
@@ -119,8 +120,11 @@ export class TriageService {
         }
       }
 
-      // Neonatal fever check (age < 0.25 years = ~3 months)
-      if (params.age <= 0.25 && text.includes('fever')) {
+      // Use explicit months when provided; otherwise accept decimal age in years
+      // so the infant safety branch is reachable through the MCP schema.
+      const isInfantUnderThreeMonths =
+        params.age_months !== undefined ? params.age_months < 3 : params.age <= 0.25;
+      if (isInfantUnderThreeMonths && text.includes('fever')) {
         matchedFlags.push({
           flag: 'Infant Fever (< 3 Months)',
           reason: 'High risk of serious occult bacterial infection in infants under 3 months.',

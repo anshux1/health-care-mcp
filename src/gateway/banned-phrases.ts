@@ -18,7 +18,7 @@ export const BANNED_PHRASES: BannedPhraseReplacement[] = [
     replacement: 'this could indicate',
   },
   {
-    pattern: /\byou have ([a-zA-Z0-9\s]+?)(?=[.,;!?]|$)/gi,
+    pattern: /\byou have ([\p{L}\p{N}\s'/-]+?)(?=[.,;!?]|$)/giu,
     replacement: 'your symptoms may be associated with $1',
   },
   {
@@ -26,7 +26,7 @@ export const BANNED_PHRASES: BannedPhraseReplacement[] = [
     replacement: 'evaluated by a clinician',
   },
   {
-    pattern: /\byou should take (\d+\s?(?:mg|g|mcg|ml|units?))\b/gi,
+    pattern: /\byou should take\s+(\d+(?:\.\d+)?\s?(?:mg|g|mcg|µg|ml|units?))\b/gi,
     replacement: 'dosing must be confirmed by a clinician or pharmacist (reference: $1)',
   },
 ];
