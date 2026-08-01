@@ -1,5 +1,5 @@
 /**
- * TriageTools — Triage module tools (BUILD_PLAN.md §2.1).
+ * TriageTools — Triage module tools.
  * Exposes triage_assess_symptoms, triage_check_red_flags, and triage_get_care_options.
  */
 import {

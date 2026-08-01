@@ -1,5 +1,5 @@
 /**
- * OpenFdaService — FDA openFDA client (BUILD_PLAN.md §4.2).
+ * OpenFdaService — FDA openFDA client.
  * Drug labels (incl. drug_interactions text used for DDI cross-scan),
  * FAERS adverse-event counts, and enforcement/recall actions.
  * 404 ("No matches found!") is a normal empty result → mapped to null/[],

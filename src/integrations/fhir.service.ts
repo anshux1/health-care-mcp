@@ -1,5 +1,5 @@
 /**
- * FhirService — HAPI FHIR R4 client with failover capabilities (BUILD_PLAN.md §4.2 & §2.5).
+ * FhirService — HAPI FHIR R4 client with failover capabilities.
  * Primary URL: FHIR_BASE_URL (hapi.fhir.org/baseR4)
  * Secondary URL: FHIR_BASE_URL_FALLBACK (r4.smarthealthit.org)
  * All data is synthetic (Synthea). Outputs stamp synthetic_data: true.

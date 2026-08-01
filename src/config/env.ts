@@ -1,5 +1,5 @@
 /**
- * Typed environment accessor (BUILD_PLAN.md §9.1)
+ * Typed environment accessor
  *
  * Zod-validated process.env. Import `env` anywhere instead of reading
  * process.env directly so misconfiguration fails loudly at boot, not
@@ -28,7 +28,7 @@ const boolFromString = (defaultValue: boolean) =>
   }, z.boolean().default(defaultValue));
 
 const envSchema = z.object({
-  // Runtime / transport (framework reads these too; defaults mirror MCP_BEST_PRACTICES §5.2)
+  // Runtime / transport (framework reads these values too).
   NODE_ENV: emptyToUndefined(z.enum(['development', 'test', 'production']).default('development')),
   MCP_TRANSPORT_TYPE: emptyToUndefined(z.enum(['stdio', 'http', 'dual']).optional()),
   PORT: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(1).max(65535).default(3000)),

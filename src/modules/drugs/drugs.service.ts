@@ -1,5 +1,5 @@
 /**
- * DrugsService — business logic for the Drug Safety module (BUILD_PLAN.md §2.2).
+ * DrugsService — business logic for the Drug Safety module.
  *
  * Interaction checking strategy (replacement for the retired NLM API):
  * resolve each drug via RxNorm → fetch each FDA label → cross-scan every

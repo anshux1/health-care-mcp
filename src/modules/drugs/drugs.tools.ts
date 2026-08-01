@@ -1,5 +1,5 @@
 /**
- * DrugsTools — Drug Safety module tools (BUILD_PLAN.md §2.2).
+ * DrugsTools — Drug Safety module tools.
  * Thin transport layer: validation/caching/rate-limiting here,
  * logic in DrugsService, HTTP in integrations services.
  */

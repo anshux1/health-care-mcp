@@ -1,5 +1,5 @@
 /**
- * ScopeGuard — Authorizes incoming tool execution against required scope matrix (BUILD_PLAN.md §5.2).
+ * ScopeGuard — Authorizes incoming tool execution against required scope matrix.
  */
 import { Guard, ExecutionContext, Injectable } from '@nitrostack/core';
 import { AuthContext } from './api-key.guard.js';

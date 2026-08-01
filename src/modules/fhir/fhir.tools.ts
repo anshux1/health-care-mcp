@@ -1,5 +1,5 @@
 /**
- * FhirTools — FHIR Patient Records module tools (BUILD_PLAN.md §2.5 & §13-S2).
+ * FhirTools — FHIR Patient Records module tools.
  * Connects to HAPI FHIR R4 synthetic patient server.
  */
 import {

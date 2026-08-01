@@ -1,5 +1,5 @@
 /**
- * CoreResources — System resources for Vitalis MCP gateway (BUILD_PLAN.md §2.7 & §13-S8).
+ * CoreResources — System resources for Vitalis MCP gateway.
  * Exposes vitalis://safety-policy, vitalis://data-sources, vitalis://audit/recent, vitalis://metrics.
  */
 import {

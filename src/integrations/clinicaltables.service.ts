@@ -1,5 +1,5 @@
 /**
- * ClinicalTablesService — NLM Clinical Table Search Service client (BUILD_PLAN.md §4.2).
+ * ClinicalTablesService — NLM Clinical Table Search Service client.
  * Primary terminology service for ICD-10-CM lookup and symptom-to-code search.
  */
 import { Injectable } from '@nitrostack/core';

@@ -1,5 +1,5 @@
 /**
- * PubMedService — NCBI E-utilities client (BUILD_PLAN.md §4.2).
+ * PubMedService — NCBI E-utilities client.
  * ESearch (id list) → ESummary (citations) / EFetch (abstract XML).
  * NCBI etiquette: every request carries tool=vitalis + email; api_key when
  * configured (raises limit 3→10 req/s). Concurrency already capped at 2

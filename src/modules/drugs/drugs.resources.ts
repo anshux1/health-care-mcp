@@ -1,5 +1,5 @@
 /**
- * DrugsResources — Resource templates for Drug Safety module (BUILD_PLAN.md §13-S4).
+ * DrugsResources — Resource templates for Drug Safety module.
  * Exposes vitalis://drugs/autocomplete/{query} for real-time frontend drug name suggestions.
  */
 import {

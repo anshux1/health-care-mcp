@@ -1,5 +1,5 @@
 /**
- * CareTools — Care Coordination module tools (BUILD_PLAN.md §2.6).
+ * CareTools — Care Coordination module tools.
  * Exposes care_generate_handoff, care_reconcile_medications, care_draft_referral, care_find_guidelines, care_appointment_prep.
  */
 import {

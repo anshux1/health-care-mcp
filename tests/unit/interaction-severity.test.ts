@@ -1,5 +1,5 @@
 /**
- * Safety-critical (BUILD_PLAN.md §8.3): DDI severity heuristic + evidence
+ * Safety-critical: DDI severity heuristic + evidence
  * extraction must be 100% branch-covered.
  */
 import { describe, it, expect } from 'vitest';

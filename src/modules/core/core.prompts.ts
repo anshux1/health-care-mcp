@@ -1,5 +1,5 @@
 /**
- * CorePrompts — Prompt templates for Vitalis MCP gateway (BUILD_PLAN.md §2.7 & §13-S7).
+ * CorePrompts — Prompt templates for Vitalis MCP gateway.
  * Exposes clinical_handoff_prompt, patient_education_prompt, research_critique_prompt,
  * discharge_summary_prompt, and medication_counseling_prompt.
  */

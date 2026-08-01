@@ -1,5 +1,5 @@
 /**
- * WhoIcdService — WHO ICD-11 API Integration Service (BUILD_PLAN.md §4.2 & §13-S3).
+ * WhoIcdService — WHO ICD-11 API Integration Service.
  * Interacts with WHO ICD API (https://id.who.int/icd).
  * Provides ICD-11 MMS entity searches and ICD-10 to ICD-11 cross-mappings.
  */

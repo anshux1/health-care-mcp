@@ -1,5 +1,5 @@
 /**
- * ResearchService — Research module logic layer (BUILD_PLAN.md §2.4).
+ * ResearchService — Research module logic layer.
  * Interacts with PubMedService and ClinicalTrialsService.
  */
 import { Injectable } from '@nitrostack/core';

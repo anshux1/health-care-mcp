@@ -1,5 +1,5 @@
 /**
- * DiagnosticsTools — Diagnostics Support module tools (BUILD_PLAN.md §2.3 & §13-S3).
+ * DiagnosticsTools — Diagnostics Support module tools.
  * Exposes dx_lookup_condition, dx_lookup_icd11, dx_interpret_lab_value, dx_explain_lab_test, and dx_symptom_to_codes.
  */
 import {

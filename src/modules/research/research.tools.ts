@@ -1,5 +1,5 @@
 /**
- * ResearchTools — Medical Research module tools (BUILD_PLAN.md §2.4).
+ * ResearchTools — Medical Research module tools.
  * Interacts with NCBI PubMed and ClinicalTrials.gov.
  */
 import {

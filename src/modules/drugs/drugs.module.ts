@@ -7,7 +7,7 @@ import { DrugsService } from './drugs.service.js';
 /**
  * Drug Safety Module — RxNorm/OpenFDA backed drug lookup, FDA label info,
  * interaction checking (label cross-scan), adverse events, recalls.
- * Per BUILD_PLAN.md §2.2 & §13-S4.
+ * Provides the drug safety tools and resources.
  */
 @Module({
   name: 'drugs',

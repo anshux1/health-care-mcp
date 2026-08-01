@@ -1,5 +1,5 @@
 /**
- * TriageService — Rule-based symptom triage engine (BUILD_PLAN.md §2.1 & §6.4).
+ * TriageService — Rule-based symptom triage engine.
  * Embedded ruleset, deterministic computation, fail-safe defaults.
  */
 import { Injectable } from '@nitrostack/core';

@@ -1,5 +1,5 @@
 /**
- * DiagnosticsService — Diagnostics support module logic (BUILD_PLAN.md §2.3).
+ * DiagnosticsService — Diagnostics support module logic.
  * Interacts with ClinicalTablesService for ICD-10-CM and embedded lab reference ranges.
  */
 import { Injectable } from '@nitrostack/core';

@@ -1,5 +1,5 @@
 /**
- * RxNormService — NLM RxNorm + RxClass client (BUILD_PLAN.md §4.2).
+ * RxNormService — NLM RxNorm + RxClass client.
  * Resolves free-text drug names to RxCUIs, synonyms, dose forms, and classes.
  * NOTE: NLM retired the /interaction endpoints (verified) — interaction
  * checking lives in OpenFdaService label cross-scan instead.

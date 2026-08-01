@@ -1,5 +1,5 @@
 /**
- * Banned phrases table for ClinicalSafetyInterceptor overreach rewriting (BUILD_PLAN.md §6.3).
+ * Banned phrases table for ClinicalSafetyInterceptor overreach rewriting.
  * Prevents diagnostic overreach and medical prescription language.
  */
 

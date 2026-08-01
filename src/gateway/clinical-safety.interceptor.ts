@@ -1,5 +1,5 @@
 /**
- * ClinicalSafetyInterceptor — Interceptor enforcing clinical safety (BUILD_PLAN.md §6.3 & §13-S6).
+ * ClinicalSafetyInterceptor — Interceptor enforcing clinical safety.
  * Post-processes output: overreach rewrite, urgency escalation, multi-language disclaimer injection, synthetic-data stamp.
  * Supported languages: EN (English), ES (Spanish), HI (Hindi).
  * VITALIS_SAFETY_LAYER=off is accepted only in NODE_ENV=test and is marked in

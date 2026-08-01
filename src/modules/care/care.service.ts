@@ -1,5 +1,5 @@
 /**
- * CareService — Care Coordination module logic (BUILD_PLAN.md §2.6).
+ * CareService — Care Coordination module logic.
  * Handles SBAR clinical handoffs, medication reconciliation, referral drafting, guidelines, and visit prep.
  */
 import { Injectable } from '@nitrostack/core';

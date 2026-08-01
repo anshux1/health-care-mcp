@@ -1,6 +1,6 @@
 /**
  * HttpClientService — shared outbound HTTP client for all upstream APIs.
- * Contract per BUILD_PLAN.md §4.3:
+ * Contract per shared HTTP policy:
  *  - 8s timeout per attempt (AbortController)
  *  - max 2 retries, exponential backoff 250ms → 1s → 4s (+25% jitter),
  *    only on network errors / 429 / 5xx; never retries other 4xx

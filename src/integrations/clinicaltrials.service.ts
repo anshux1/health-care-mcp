@@ -1,5 +1,5 @@
 /**
- * ClinicalTrialsService — ClinicalTrials.gov API v2 client (BUILD_PLAN.md §4.2).
+ * ClinicalTrialsService — ClinicalTrials.gov API v2 client.
  * REST API v2 interface for querying clinical trial protocols and studies.
  */
 import { Injectable } from '@nitrostack/core';

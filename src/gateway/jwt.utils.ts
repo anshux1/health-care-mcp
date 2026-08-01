@@ -1,5 +1,5 @@
 /**
- * Native HS256 JWT Utility — Signs and verifies JWT tokens using node:crypto (BUILD_PLAN.md §13-S1).
+ * Native HS256 JWT Utility — Signs and verifies JWT tokens using node:crypto.
  */
 import crypto from 'node:crypto';
 import { env } from '../config/env.js';

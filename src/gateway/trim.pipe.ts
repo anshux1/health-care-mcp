@@ -1,5 +1,5 @@
 /**
- * TrimPipe — Normalizes and trims all string inputs recursively (BUILD_PLAN.md §3.1).
+ * TrimPipe — Normalizes and trims all string inputs recursively.
  */
 import { Pipe, PipeInterface, ArgumentMetadata, Injectable } from '@nitrostack/core';
 
