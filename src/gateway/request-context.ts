@@ -10,6 +10,7 @@ export interface ExternalCallRecord {
   path: string;
   status: number;
   latency_ms: number;
+  error_code?: string;
 }
 
 export function runWithRequestHeaders<T>(headers: RequestHeaders, callback: () => T): T {

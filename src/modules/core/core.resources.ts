@@ -12,6 +12,7 @@ import { AuditStore } from '../../gateway/audit.store.js';
 import { MetricsStore } from '../../gateway/metrics.store.js';
 import { ApiKeyGuard } from '../../gateway/api-key.guard.js';
 import { hasAdminScope } from '../../gateway/scope.guard.js';
+import { withResourceAudit } from '../../gateway/resource-audit.js';
 
 @Controller('core')
 @Injectable({ deps: [AuditStore, MetricsStore, ApiKeyGuard] })
@@ -28,8 +29,8 @@ export class CoreResources {
     description: 'Full text of safety guardrails, urgency tier definitions, and mandatory disclaimer policy.',
     mimeType: 'text/markdown',
   })
-  async getSafetyPolicy() {
-    return `# Vitalis Clinical Intelligence — Safety & Compliance Policy
+  async getSafetyPolicy(_uri: string, ctx: ExecutionContext) {
+    return withResourceAudit('vitalis://safety-policy', ctx, () => `# Vitalis Clinical Intelligence — Safety & Compliance Policy
 
 ## 1. Safety Framework
 Vitalis operates under a strict three-layer safety system:
@@ -48,7 +49,7 @@ Vitalis operates under a strict three-layer safety system:
 All clinical responses automatically include the standard disclaimer:
 > "For informational purposes only. Not medical advice, diagnosis, or treatment."
 All FHIR patient records are 100% synthetic (Synthea generator) and contain ZERO real PHI.
-`;
+`);
   }
 
   @Resource({
@@ -57,8 +58,8 @@ All FHIR patient records are 100% synthetic (Synthea generator) and contain ZERO
     description: 'Registry of external clinical intelligence data APIs, base URLs, rate limits, and terms.',
     mimeType: 'text/markdown',
   })
-  async getDataSources() {
-    return `# Vitalis External Data Source Registry
+  async getDataSources(_uri: string, ctx: ExecutionContext) {
+    return withResourceAudit('vitalis://data-sources', ctx, () => `# Vitalis External Data Source Registry
 
 | API Name | Base URL | Auth Required | Rate Limit | Purpose |
 |---|---|---|---|---|
@@ -69,7 +70,7 @@ All FHIR patient records are 100% synthetic (Synthea generator) and contain ZERO
 | **NCBI E-utilities** | \`https://eutils.ncbi.nlm.nih.gov/entrez/eutils\` | Optional Key | 3 req/s (10/s with key) | PubMed article search, XML abstracts, MeSH terms |
 | **ClinicalTrials.gov v2** | \`https://clinicaltrials.gov/api/v2\` | None | <= 3 req/s | Human clinical trial protocol search & details |
 | **HAPI FHIR R4** | \`https://hapi.fhir.org/baseR4\` | None | Public sandbox | Synthetic patient EHR data (Synthea) |
-`;
+`);
   }
 
   @Resource({
@@ -79,26 +80,37 @@ All FHIR patient records are 100% synthetic (Synthea generator) and contain ZERO
     mimeType: 'application/json',
   })
   async getRecentAuditLogs(_uri: string, ctx: ExecutionContext) {
-    await this.apiKeyGuard.canActivate(ctx);
-    const auth = ctx.auth;
-    if (!hasAdminScope(auth as any)) {
-      throw new Error(
-        'SCOPE_DENIED: Accessing vitalis://audit/recent requires the configured admin identity and scope admin:audit.',
-      );
-    }
+    return withResourceAudit('vitalis://audit/recent', ctx, async () => {
+      await this.apiKeyGuard.canActivate(ctx);
+      const auth = ctx.auth;
+      if (!hasAdminScope(auth as any)) {
+        throw new Error(
+          'SCOPE_DENIED: Accessing vitalis://audit/recent requires the configured admin identity and scope admin:audit.',
+        );
+      }
 
-    const entries = this.auditStore.getRecentEntries();
-    return JSON.stringify({ count: entries.length, entries }, null, 2);
+      const entries = this.auditStore.getRecentEntries();
+      return JSON.stringify({ count: entries.length, entries }, null, 2);
+    });
   }
 
   @Resource({
     uri: 'vitalis://metrics',
     name: 'Server Telemetry & Performance Metrics',
-    description: 'Real-time telemetry stats including request counts, average latency, error rates, and memory usage.',
+    description: 'Admin-only telemetry stats including request counts, percentile latency, cache/upstream errors, and memory usage.',
     mimeType: 'application/json',
   })
-  async getMetrics() {
-    const metrics = this.metricsStore.getMetrics();
-    return JSON.stringify(metrics, null, 2);
+  async getMetrics(_uri: string, ctx: ExecutionContext) {
+    return withResourceAudit('vitalis://metrics', ctx, async () => {
+      await this.apiKeyGuard.canActivate(ctx);
+      if (!hasAdminScope(ctx.auth as any)) {
+        throw new Error(
+          'SCOPE_DENIED: Accessing vitalis://metrics requires the configured admin identity and scope admin:audit.',
+        );
+      }
+
+      const metrics = this.metricsStore.getMetrics();
+      return JSON.stringify(metrics, null, 2);
+    });
   }
 }

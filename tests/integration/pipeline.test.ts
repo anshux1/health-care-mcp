@@ -63,6 +63,7 @@ function parseToolResult(result: Awaited<ReturnType<TestClient['callTool']>>) {
 }
 
 async function readAuditLog() {
+  await new Promise<void>((resolve) => setImmediate(resolve));
   try {
     return readFileSync(auditLogPath, 'utf8')
       .split('\n')
@@ -146,6 +147,10 @@ describe('clinical gateway pipeline', () => {
       tool: 'triage_get_care_options',
       subject: 'readonly_demo',
       status: 'ok',
+      request_id: expect.any(String),
+      input_hash: expect.any(String),
+      scopes: expect.arrayContaining(['triage:read']),
+      external_calls: [],
     });
     expect(entries.at(-1)).not.toHaveProperty('api_key');
   });
@@ -240,12 +245,41 @@ describe('clinical gateway pipeline', () => {
     }
   });
 
-  it('protects vitalis://audit/recent with admin scope', async () => {
+  it('records cache hits and exposes admin-only latency metrics', async () => {
+    const cacheInput = { urgency_tier: 'routine', condition: 'cache-metrics' };
+    await callTool('triage_get_care_options', cacheInput, READONLY_KEY);
+    await readAuditLog();
+    await callTool('triage_get_care_options', cacheInput, READONLY_KEY);
+    const entries = await readAuditLog();
+    const cacheEntries = entries
+      .filter((entry) => entry.tool === 'triage_get_care_options' && entry.input_summary.condition === 'cache-metrics')
+      .slice(-2);
+
+    expect(cacheEntries).toHaveLength(2);
+    expect(cacheEntries[0].cache_hit).toBe(false);
+    expect(cacheEntries[1].cache_hit).toBe(true);
+
+    const metricsResource = server.resources.get('vitalis://metrics');
+    const metricsContext = server.createContext({ metadata: { 'x-api-key': ADMIN_KEY } });
+    const metricsContent = await metricsResource.fetch(metricsContext, 'vitalis://metrics');
+    const metrics = JSON.parse(metricsContent.data);
+    expect(metrics.requests_by_tool.triage_get_care_options).toBeGreaterThanOrEqual(2);
+    expect(metrics.p50_latency_ms).toEqual(expect.any(Number));
+    expect(metrics.p95_latency_ms).toEqual(expect.any(Number));
+    expect(metrics.cache_hits).toBeGreaterThanOrEqual(1);
+  });
+
+  it('protects vitalis://audit/recent and vitalis://metrics with admin scope', async () => {
     const resource = server.resources.get('vitalis://audit/recent');
+    const metricsResource = server.resources.get('vitalis://metrics');
     expect(resource).toBeDefined();
+    expect(metricsResource).toBeDefined();
 
     const unauthenticatedContext = server.createContext();
     await expect(resource.fetch(unauthenticatedContext, 'vitalis://audit/recent')).rejects.toThrow(
+      'AUTH_DENIED',
+    );
+    await expect(metricsResource.fetch(unauthenticatedContext, 'vitalis://metrics')).rejects.toThrow(
       'AUTH_DENIED',
     );
 

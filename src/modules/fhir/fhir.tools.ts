@@ -8,12 +8,12 @@ import {
   ExecutionContext,
   Injectable,
   ControllerDecorator as Controller,
-  Cache,
   RateLimit,
   z,
 } from '@nitrostack/core';
 import { FhirService } from '../../integrations/fhir.service.js';
 import { UseClinicalGateway } from '../../gateway/clinical-gateway.decorator.js';
+import { Cache } from '../../gateway/cache.decorator.js';
 
 @Controller('fhir')
 @Injectable({ deps: [FhirService] })
@@ -40,13 +40,13 @@ export class FhirTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({
     ttl: 300,
     key: (input: any) =>
       `fhir_search:${input.name ?? ''}:${input.gender ?? ''}:${input.birthdate ?? ''}:${input.max_results ?? 10}`,
   })
   @RateLimit({ requests: 20, window: '1m' })
-  @UseClinicalGateway()
   async searchPatients(input: any, ctx: ExecutionContext) {
     ctx.logger.info('fhir_search_patients', { name: input.name });
     const result = await this.fhirService.searchPatients({
@@ -85,9 +85,9 @@ export class FhirTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({ ttl: 600, key: (input: any) => `fhir_patient:${input.patient_id}` })
   @RateLimit({ requests: 20, window: '1m' })
-  @UseClinicalGateway()
   async getPatient(input: any, ctx: ExecutionContext) {
     ctx.logger.info('fhir_get_patient', { patient_id: input.patient_id });
     const result = await this.fhirService.getPatient(input.patient_id);
@@ -119,9 +119,9 @@ export class FhirTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({ ttl: 600, key: (input: any) => `fhir_cond:${input.patient_id}:${input.clinical_status ?? 'active'}` })
   @RateLimit({ requests: 20, window: '1m' })
-  @UseClinicalGateway()
   async getConditions(input: any, ctx: ExecutionContext) {
     ctx.logger.info('fhir_get_conditions', { patient_id: input.patient_id });
     const result = await this.fhirService.getConditions(input.patient_id, input.clinical_status ?? 'active');
@@ -150,9 +150,9 @@ export class FhirTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({ ttl: 600, key: (input: any) => `fhir_meds:${input.patient_id}:${input.status ?? 'active'}` })
   @RateLimit({ requests: 20, window: '1m' })
-  @UseClinicalGateway()
   async getMedications(input: any, ctx: ExecutionContext) {
     ctx.logger.info('fhir_get_medications', { patient_id: input.patient_id });
     const result = await this.fhirService.getMedications(input.patient_id, input.status ?? 'active');
@@ -183,13 +183,13 @@ export class FhirTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({
     ttl: 300,
     key: (input: any) =>
       `fhir_obs:${input.patient_id}:${input.category ?? 'any'}:${input.code ?? ''}:${input.max_results ?? 20}`,
   })
   @RateLimit({ requests: 20, window: '1m' })
-  @UseClinicalGateway()
   async getObservations(input: any, ctx: ExecutionContext) {
     ctx.logger.info('fhir_get_observations', { patient_id: input.patient_id });
     const result = await this.fhirService.getObservations(
@@ -223,9 +223,9 @@ export class FhirTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({ ttl: 600, key: (input: any) => `fhir_enc:${input.patient_id}:${input.max_results ?? 10}` })
   @RateLimit({ requests: 20, window: '1m' })
-  @UseClinicalGateway()
   async getEncounters(input: any, ctx: ExecutionContext) {
     ctx.logger.info('fhir_get_encounters', { patient_id: input.patient_id });
     const result = await this.fhirService.getEncounters(input.patient_id, input.max_results ?? 10);
@@ -253,9 +253,9 @@ export class FhirTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({ ttl: 600, key: (input: any) => `fhir_alg:${input.patient_id}` })
   @RateLimit({ requests: 20, window: '1m' })
-  @UseClinicalGateway()
   async getAllergies(input: any, ctx: ExecutionContext) {
     ctx.logger.info('fhir_get_allergies', { patient_id: input.patient_id });
     const result = await this.fhirService.getAllergies(input.patient_id);
@@ -283,9 +283,9 @@ export class FhirTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({ ttl: 600, key: (input: any) => `fhir_imm:${input.patient_id}` })
   @RateLimit({ requests: 20, window: '1m' })
-  @UseClinicalGateway()
   async getImmunizations(input: any, ctx: ExecutionContext) {
     ctx.logger.info('fhir_get_immunizations', { patient_id: input.patient_id });
     const result = await this.fhirService.getImmunizations(input.patient_id);
@@ -323,9 +323,9 @@ export class FhirTools {
     },
   })
   @Widget('patient-summary')
+  @UseClinicalGateway()
   @Cache({ ttl: 300, key: (input: any) => `fhir_summary:${input.patient_id}` })
   @RateLimit({ requests: 20, window: '1m' })
-  @UseClinicalGateway()
   async getPatientSummary(input: any, ctx: ExecutionContext) {
     ctx.logger.info('fhir_get_patient_summary', { patient_id: input.patient_id });
     const summary = await this.fhirService.getPatientSummary(input.patient_id);

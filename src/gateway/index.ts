@@ -9,6 +9,8 @@ export * from './timing.interceptor.js';
 export * from './clinical-exception.filter.js';
 export * from './trim.pipe.js';
 export * from './clinical-gateway.decorator.js';
+export * from './cache.decorator.js';
+export * from './resource-audit.js';
 export * from './http-context.module.js';
 export * from './request-context.js';
 export * from './metrics.store.js';

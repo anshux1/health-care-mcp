@@ -8,12 +8,12 @@ import {
   ExecutionContext,
   Injectable,
   ControllerDecorator as Controller,
-  Cache,
   RateLimit,
   z,
 } from '@nitrostack/core';
 import { TriageService, UrgencyTier } from './triage.service.js';
 import { UseClinicalGateway } from '../../gateway/clinical-gateway.decorator.js';
+import { Cache } from '../../gateway/cache.decorator.js';
 
 @Controller('triage')
 @Injectable({ deps: [TriageService] })
@@ -60,8 +60,8 @@ export class TriageTools {
     },
   })
   @Widget('triage-result')
-  @RateLimit({ requests: 120, window: '1m' })
   @UseClinicalGateway()
+  @RateLimit({ requests: 120, window: '1m' })
   async assessSymptoms(input: any, ctx: ExecutionContext) {
     ctx.logger.info('triage_assess_symptoms', {
       symptoms: input.symptoms,
@@ -105,8 +105,8 @@ export class TriageTools {
       },
     },
   })
-  @RateLimit({ requests: 120, window: '1m' })
   @UseClinicalGateway()
+  @RateLimit({ requests: 120, window: '1m' })
   async checkRedFlags(input: any, ctx: ExecutionContext) {
     ctx.logger.info('triage_check_red_flags', { symptoms: input.symptoms });
     const result = this.triageService.checkRedFlags(input.symptoms);
@@ -139,9 +139,9 @@ export class TriageTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({ ttl: 86400, key: (input: any) => `care_options:${input.urgency_tier}:${input.condition ?? ''}` })
   @RateLimit({ requests: 120, window: '1m' })
-  @UseClinicalGateway()
   async getCareOptions(input: any, ctx: ExecutionContext) {
     ctx.logger.info('triage_get_care_options', { urgency_tier: input.urgency_tier });
     const result = this.triageService.getCareOptions(input.urgency_tier as UrgencyTier, input.condition);

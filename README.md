@@ -133,7 +133,7 @@ VITALIS_ALLOW_ANONYMOUS_DEMO=false
 # JWT_SECRET=replace-with-a-random-32-byte-secret
 ```
 
-Production startup requires at least one configured API key or `JWT_SECRET`. Anonymous demo access is disabled by default and, when explicitly enabled, is limited to read-only scopes. `VITALIS_SAFETY_LAYER=off` is test-only; outside `NODE_ENV=test` it is ignored.
+Production startup requires at least one configured API key or `JWT_SECRET`. Anonymous demo access is disabled by default and, when explicitly enabled, is limited to read-only scopes. The `vitalis://audit/recent` and `vitalis://metrics` resources require the configured admin identity. `VITALIS_SAFETY_LAYER=off` is test-only; outside `NODE_ENV=test` it is ignored.
 
 ### Running Locally
 ```bash

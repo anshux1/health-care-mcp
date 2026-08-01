@@ -28,6 +28,7 @@ Completed in the first implementation pass:
 - [x] Added unit tests for scopes, trimming, medication reconciliation, and lab units.
 - [x] Added end-to-end MCP gateway pipeline coverage for authentication, scopes, safety, timing, filters, trimming, audit logging, and protected audit-resource access.
 - [x] Hardened authentication/authorization and completed the centralized clinical safety layer with infant-safe triage input and a validated 30-rule ruleset.
+- [x] Completed audit events, bounded persistence, cache/upstream telemetry, and percentile latency metrics.
 
 Still outstanding after this pass:
 
@@ -528,6 +529,8 @@ The approximately 30-rule requirement remains mandatory and is now met with 30 v
 
 # Phase 5 — Complete Audit, Timing, and Metrics
 
+**Status: Complete.** Audit events, bounded/redacted input metadata, cache/upstream observability, percentile latency metrics, bounded persistence, and admin-only metrics access are implemented and tested.
+
 ## Goal
 
 Make every request observable while protecting sensitive input.
@@ -536,44 +539,44 @@ Make every request observable while protecting sensitive input.
 
 Update `AuditLogInterceptor`, `AuditStore`, and integration metadata flow.
 
-- [ ] Generate a request ID for every tool/resource call.
-- [ ] Record tool/resource name.
-- [ ] Record authenticated subject and scopes.
-- [ ] Record a safe, recursively-redacted input summary.
-- [ ] Do not log API keys or raw secrets.
-- [ ] Never log raw free text beyond the approved limit.
-- [ ] Truncate nested arrays and objects, not only top-level strings.
-- [ ] Record a canonical input hash.
-- [ ] Record emergency detection status.
-- [ ] Record final urgency tier.
-- [ ] Record cache hit/miss.
-- [ ] Record outbound API calls, sanitized path, status, and latency.
-- [ ] Record total latency and final status/error code.
+- [x] Generate a request ID for every tool/resource call.
+- [x] Record tool/resource name.
+- [x] Record authenticated subject and scopes.
+- [x] Record a safe, recursively-redacted input summary.
+- [x] Do not log API keys or raw secrets.
+- [x] Never log raw free text beyond the approved limit.
+- [x] Truncate nested arrays and objects, not only top-level strings.
+- [x] Record a canonical input hash with stable key ordering.
+- [x] Record emergency detection status.
+- [x] Record final urgency tier.
+- [x] Record cache hit/miss.
+- [x] Record outbound API calls, sanitized path, status, and latency.
+- [x] Record total latency and final status/error code.
 
 ## 5.2 Event and storage behavior
 
 The original plan specifies an event-based audit write path.
 
-- [ ] Emit `audit.entry` after request completion.
-- [ ] Make `AuditStore` consume the event.
-- [ ] Avoid synchronous disk I/O in the request path where NitroStack events support asynchronous handling.
-- [ ] Preserve the last 50 entries in memory for the resource.
-- [ ] On startup, load the last 50 entries from the JSONL file.
-- [ ] Trim the persistent JSONL file to the latest 5,000 lines.
-- [ ] Handle file permission failures visibly through logger warnings/metrics instead of silently swallowing them.
+- [x] Emit `audit.entry` after request completion.
+- [x] Make `AuditStore` consume the event.
+- [x] Keep synchronous JSONL persistence in the asynchronous event consumer, outside the request completion path.
+- [x] Preserve the last 50 entries in memory for the resource.
+- [x] On startup, load the last 50 entries from the JSONL file.
+- [x] Trim the persistent JSONL file to the latest 5,000 lines.
+- [x] Handle file permission failures visibly through logger warnings/stderr fallback.
 
 ## 5.3 Timing and metrics
 
 Update `TimingInterceptor` and `MetricsStore`:
 
-- [ ] Ensure timing interceptor is active.
-- [ ] Add `_meta.durationMs` to successful tool responses.
-- [ ] Record error timings as well as successful timings.
-- [ ] Track p50 and p95 latency, not only average latency.
-- [ ] Track request count and error count by tool.
-- [ ] Track cache hits/misses if framework hooks allow it.
-- [ ] Track upstream error counts.
-- [ ] Decide whether `vitalis://metrics` is public or admin-only and document the choice.
+- [x] Ensure timing interceptor is active.
+- [x] Add `_meta.durationMs` to successful tool responses.
+- [x] Record error timings as well as successful timings.
+- [x] Track p50 and p95 latency, not only average latency.
+- [x] Track request count and error count by tool.
+- [x] Track cache hits/misses through the project cache adapter.
+- [x] Track upstream error counts from outbound-call metadata.
+- [x] Make `vitalis://metrics` admin-only and document the choice in its resource description.
 
 ## Acceptance criteria
 

@@ -8,12 +8,12 @@ import {
   ExecutionContext,
   Injectable,
   ControllerDecorator as Controller,
-  Cache,
   RateLimit,
   z,
 } from '@nitrostack/core';
 import { ResearchService } from './research.service.js';
 import { UseClinicalGateway } from '../../gateway/clinical-gateway.decorator.js';
+import { Cache } from '../../gateway/cache.decorator.js';
 
 @Controller('research')
 @Injectable({ deps: [ResearchService] })
@@ -51,13 +51,13 @@ export class ResearchTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({
     ttl: 21600,
     key: (input: any) =>
       `pubmed_search:${String(input.query).toLowerCase()}:${input.max_results}:${input.publication_type}:${input.years_back ?? ''}`,
   })
   @RateLimit({ requests: 10, window: '1m' })
-  @UseClinicalGateway()
   async searchPubmed(input: any, ctx: ExecutionContext) {
     ctx.logger.info('research_search_pubmed', { query: input.query });
     const result = await this.researchService.searchPubmed(
@@ -98,9 +98,9 @@ export class ResearchTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({ ttl: 86400, key: (input: any) => `pubmed_article:${input.pmid}` })
   @RateLimit({ requests: 10, window: '1m' })
-  @UseClinicalGateway()
   async getArticle(input: any, ctx: ExecutionContext) {
     ctx.logger.info('research_get_article', { pmid: input.pmid });
     const result = await this.researchService.getArticle(input.pmid);
@@ -146,13 +146,13 @@ export class ResearchTools {
     },
   })
   @Widget('trial-list')
+  @UseClinicalGateway()
   @Cache({
     ttl: 21600,
     key: (input: any) =>
       `trials_search:${String(input.condition).toLowerCase()}:${input.status}:${input.phase}:${input.max_results}`,
   })
   @RateLimit({ requests: 10, window: '1m' })
-  @UseClinicalGateway()
   async searchTrials(input: any, ctx: ExecutionContext) {
     ctx.logger.info('research_search_trials', { condition: input.condition });
     const result = await this.researchService.searchTrials(
@@ -191,9 +191,9 @@ export class ResearchTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({ ttl: 86400, key: (input: any) => `trial_detail:${input.nct_id}` })
   @RateLimit({ requests: 10, window: '1m' })
-  @UseClinicalGateway()
   async getTrialDetails(input: any, ctx: ExecutionContext) {
     ctx.logger.info('research_get_trial_details', { nct_id: input.nct_id });
     const result = await this.researchService.getTrialDetails(input.nct_id);
@@ -226,12 +226,12 @@ export class ResearchTools {
       },
     },
   })
+  @UseClinicalGateway()
   @Cache({
     ttl: 21600,
     key: (input: any) => `evidence_summary:${String(input.topic).toLowerCase()}:${input.max_results}`,
   })
   @RateLimit({ requests: 10, window: '1m' })
-  @UseClinicalGateway()
   async summarizeEvidence(input: any, ctx: ExecutionContext) {
     ctx.logger.info('research_summarize_evidence', { topic: input.topic });
     const result = await this.researchService.summarizeEvidence(input.topic, input.max_results ?? 5);

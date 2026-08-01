@@ -1,21 +1,24 @@
-/**
- * ClinicalExceptionFilter — maps thrown errors to a safe, stable response and
- * records failures that occur before the interceptor chain (for example auth and
- * scope failures).
- */
-import { ExceptionFilter, ExceptionFilterInterface, ExecutionContext, Injectable } from '@nitrostack/core';
-import { AuditStore, AuditEntry } from './audit.store.js';
+import {
+  emitEvent,
+  ExceptionFilter,
+  ExceptionFilterInterface,
+  ExecutionContext,
+  Injectable,
+} from '@nitrostack/core';
+import { AuditEntry } from './audit.store.js';
 import { MetricsStore } from './metrics.store.js';
 import * as crypto from 'node:crypto';
 import { getExternalCalls } from './request-context.js';
+import {
+  canonicalInputHash,
+  normalizeExternalCalls,
+  summarizeInput,
+} from './audit-log.interceptor.js';
 
 @ExceptionFilter()
-@Injectable({ deps: [AuditStore, MetricsStore] })
+@Injectable({ deps: [MetricsStore] })
 export class ClinicalExceptionFilter implements ExceptionFilterInterface {
-  constructor(
-    private readonly auditStore: AuditStore,
-    private readonly metricsStore: MetricsStore,
-  ) {}
+  constructor(private readonly metricsStore: MetricsStore) {}
 
   async catch(error: any, context: ExecutionContext): Promise<any> {
     const rawMessage = error?.message ?? String(error);
@@ -48,29 +51,30 @@ export class ClinicalExceptionFilter implements ExceptionFilterInterface {
 
     if (!(context as any).audit_recorded) {
       const auth = (context as any).auth ?? { subject: 'anonymous', scopes: [] };
-      const inputSummary = {};
-      const inputHash = crypto
-        .createHash('sha256')
-        .update('{}')
-        .digest('hex')
-        .substring(0, 16);
+      const input = (context as any).input ?? (context as any).args?.[0] ?? {};
+      const inputSummary = summarizeInput(input);
+      const requestId = context.requestId ?? crypto.randomUUID();
       const entry: AuditEntry = {
         ts: new Date().toISOString(),
-        request_id: context.requestId ?? crypto.randomUUID(),
+        request_id: requestId,
         tool: context.toolName ?? 'unknown_tool',
-        subject: auth.subject,
-        scopes: auth.scopes ?? [],
+        subject: typeof auth.subject === 'string' ? auth.subject : 'anonymous',
+        scopes: Array.isArray(auth.scopes)
+          ? auth.scopes.filter((scope: unknown): scope is string => typeof scope === 'string')
+          : [],
         input_summary: inputSummary,
-        input_hash: inputHash,
+        input_hash: canonicalInputHash(inputSummary),
         emergency_detected: ((context as any).emergency?.matched_terms?.length ?? 0) > 0,
         urgency_tier: 'not_applicable',
-        cache_hit: false,
-        external_calls: (context as any).external_calls ?? getExternalCalls(),
+        cache_hit: (context as any).cache_hit === true,
+        external_calls: normalizeExternalCalls(
+          (context as any).external_calls ?? getExternalCalls(),
+        ),
         latency_ms: 0,
         status: 'error',
         error_code: code,
       };
-      this.auditStore.addEntry(entry);
+      emitEvent('audit.entry', entry);
       this.metricsStore.recordRequest(context.toolName ?? 'unknown', 0, true);
       (context as any).audit_recorded = true;
     }

@@ -252,6 +252,13 @@ export class HttpClientService {
             undefined,
             attempts,
           );
+          recordExternalCall({
+            api: opts.api,
+            path: this.sanitizeUrl(opts.url),
+            status: 0,
+            latency_ms: Date.now() - startedAt,
+            error_code: lastError.code,
+          });
           if (attempts < maxAttempts) {
             const delay = Math.min(this.retryDelayMs(attempts), deadlineAt - Date.now());
             if (delay <= 0) throw lastError;

@@ -1,8 +1,4 @@
-/**
- * AuditStore — JSONL log writer and in-memory ring buffer for audit entries (BUILD_PLAN.md §5.3).
- * Ring buffer keeps last 50 entries for admin inspection via vitalis://audit/recent.
- */
-import { Injectable } from '@nitrostack/core';
+import { Injectable, OnEvent } from '@nitrostack/core';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { env } from '../config/env.js';
@@ -18,51 +14,61 @@ export interface AuditEntry {
   emergency_detected: boolean;
   urgency_tier: string;
   cache_hit: boolean;
-  external_calls: Array<{ api: string; path: string; status: number; latency_ms: number }>;
+  external_calls: Array<{
+    api: string;
+    path: string;
+    status: number;
+    latency_ms: number;
+    error_code?: string;
+  }>;
   latency_ms: number;
   status: 'ok' | 'error';
   error_code?: string | null;
 }
 
-@Injectable()
+type AuditLogger = {
+  warn?: (message: string, meta?: Record<string, unknown>) => void;
+};
+
+@Injectable({ deps: ['Logger'] })
 export class AuditStore {
   private readonly ringBuffer: AuditEntry[] = [];
   private readonly maxRingSize = 50;
   private readonly maxPersistentLines = 5_000;
   private readonly logPath: string;
 
-  constructor() {
+  constructor(private readonly logger?: AuditLogger) {
     this.logPath = path.resolve(process.cwd(), env.AUDIT_LOG_PATH ?? 'logs/audit.jsonl');
     this.ensureLogDir();
     this.loadRecentEntries();
   }
 
-  private ensureLogDir() {
-    try {
-      const dir = path.dirname(this.logPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-    } catch {
-      // Ignore directory creation errors in restricted envs
-    }
+  /** Event consumer keeps synchronous persistence outside the request path. */
+  @OnEvent('audit.entry')
+  async handleAuditEntry(entry: AuditEntry): Promise<void> {
+    this.addEntry(entry);
   }
 
-  addEntry(entry: AuditEntry) {
-    // 1. Append to ring buffer
+  addEntry(entry: AuditEntry): void {
     this.ringBuffer.push(entry);
     if (this.ringBuffer.length > this.maxRingSize) {
       this.ringBuffer.shift();
     }
 
-    // 2. Append JSONL to disk
     try {
-      const line = JSON.stringify(entry) + '\n';
-      fs.appendFileSync(this.logPath, line, 'utf-8');
+      fs.appendFileSync(this.logPath, `${JSON.stringify(entry)}\n`, 'utf-8');
       this.trimPersistentLog();
-    } catch {
-      // Audit failures must not break clinical tool execution. The in-memory
-      // ring remains available even when persistent storage is unavailable.
+    } catch (error) {
+      this.reportStorageFailure('write', error);
+    }
+  }
+
+  private ensureLogDir(): void {
+    try {
+      const dir = path.dirname(this.logPath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    } catch (error) {
+      this.reportStorageFailure('directory setup', error);
     }
   }
 
@@ -78,12 +84,12 @@ export class AuditStore {
         try {
           const entry = JSON.parse(line) as AuditEntry;
           this.ringBuffer.push(entry);
-        } catch {
-          // Ignore malformed historical lines and continue loading newer entries.
+        } catch (error) {
+          this.reportStorageFailure('historical entry parse', error);
         }
       }
-    } catch {
-      // Continue with an empty in-memory ring when the log cannot be read.
+    } catch (error) {
+      this.reportStorageFailure('startup read', error);
     }
   }
 
@@ -97,8 +103,17 @@ export class AuditStore {
           'utf-8',
         );
       }
-    } catch {
-      // Persistence is best effort; do not fail the request.
+    } catch (error) {
+      this.reportStorageFailure('trim', error);
+    }
+  }
+
+  private reportStorageFailure(operation: string, error: unknown): void {
+    const message = error instanceof Error ? error.message : String(error);
+    if (this.logger?.warn) {
+      this.logger.warn(`Audit persistence ${operation} failed`, { error: message });
+    } else {
+      console.error(`[AuditStore] Audit persistence ${operation} failed: ${message}`);
     }
   }
 
