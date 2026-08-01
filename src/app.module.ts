@@ -10,6 +10,7 @@ import { CareModule } from './modules/care/care.module.js';
 import { CoreModule } from './modules/core/core.module.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
 import { HttpContextModule } from './gateway/http-context.module.js';
+import { env } from './config/env.js';
 
 /**
  * Vitalis — Clinical Intelligence MCP Server
@@ -22,7 +23,7 @@ import { HttpContextModule } from './gateway/http-context.module.js';
     version: '1.0.0',
   },
   logging: {
-    level: 'info',
+    level: env.NITRO_LOG_LEVEL,
   },
 })
 @Module({

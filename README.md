@@ -1,160 +1,275 @@
 # Vitalis — Clinical Intelligence MCP Server
 
-> **One-line pitch:** A production-grade MCP gateway that gives any LLM client safe, authenticated, auditable access to six clinical intelligence capabilities — triage, drug safety, diagnostics support, medical research, FHIR patient records, and care coordination — powered entirely by live public health data, with zero PHI.
+[![CI](https://github.com/anshux1/health-care-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/anshux1/health-care-mcp/actions/workflows/ci.yml) [![Node](https://img.shields.io/badge/node-%3E%3D18-339933)](https://nodejs.org/) [![MCP](https://img.shields.io/badge/MCP-compatible-6f42c1)](https://modelcontextprotocol.io/)
 
----
+> **Safe clinical intelligence infrastructure for MCP clients.** Vitalis gives LLM clients authenticated, scoped, auditable access to triage, drug safety, diagnostics, research, synthetic FHIR records, and care coordination.
 
-## 1. Overview & Differentiation
+> **Responsible use:** Vitalis is a clinical decision-support research and demonstration server. It is not a medical device and must not replace a licensed clinician, emergency services, or local clinical policy.
 
-Generic symptom-checker LLM applications typically bolt a static disclaimer onto free-form text. **Vitalis is developer infrastructure**:
+## 1. 30-second pitch
 
-1. **Safety is enforced by framework middleware**, not prompt engineering:
-   - `EmergencyDetectionGuard` scans inputs for red flags before execution.
-   - `ClinicalSafetyInterceptor` rewrites overreach language (e.g., "you are diagnosed with"), stamps urgency tiers, and forces clinical disclaimers automatically.
-2. **Six Real, Live Federal & Clinical APIs**:
-   - NLM RxNorm & RxClass
-   - OpenFDA (Labels, FAERS Adverse Events, Enforcement/Recalls)
-   - NCBI PubMed (E-utilities with XML abstract parsing)
-   - ClinicalTrials.gov API v2
-   - HAPI FHIR R4 (with Synthea synthetic patient sandbox + SMART Health IT failover)
-   - NLM Clinical Table Search Service (ICD-10-CM)
-3. **Enterprise Gateway Layer**: API-key auth with scopes, per-tool sliding window rate limits, structured JSONL audit logs with input hashing, and health checks.
-4. **Interactive Next.js Widgets**: 6 custom UI widgets (including the flagship patient summary card) linked via `@Widget` decorators.
+Vitalis is different from a prompt-only symptom checker because safety is enforced in the runtime gateway:
 
----
+- `EmergencyDetectionGuard` detects red-flag terms without blocking emergency-information requests.
+- `ApiKeyGuard`/JWT validation and `ScopeGuard` enforce identity and least-privilege access.
+- `ClinicalSafetyInterceptor` rewrites diagnostic overreach, adds disclaimers, escalates urgency, and labels synthetic FHIR/care data.
+- `AuditLogInterceptor` records bounded, redacted JSONL audit events with canonical input hashes.
+- Shared HTTP policies provide deadlines, retries, response caps, concurrency limits, and upstream metadata.
+- Six interactive widgets display tool output and can call tools, change display mode, filter data, and send follow-up messages.
 
-## 2. Capability & Module Architecture
+The project uses live public upstreams where available and HAPI FHIR/Synthea synthetic patient data only. No real PHI is included in the repository.
 
-Vitalis exposes 29 core clinical tools across 6 modules, plus 3 clearly-labeled stretch tools, core resources, and prompts:
+## 2. Demo and endpoint status
 
-### 🏥 Module 1: Triage (`triage`)
-- `triage_assess_symptoms`: Full triage assessment yielding urgency tier (`emergency`, `urgent`, `routine`, `self_care`), red-flag matches, candidate conditions, and guidance.
-- `triage_check_red_flags`: Fast emergency-only screening for critical red-flag terms.
-- `triage_get_care_options`: Maps urgency tier to concrete clinical care pathways.
+No public endpoint is claimed by this repository until it has passed the authenticated verification checklist in `docs/deployment.md`. After deployment, publish the value as:
 
-### 💊 Module 2: Drug Safety (`drugs`)
-- `drugs_search`: Resolves free-text drug names to RxCUI identifiers, synonyms, and drug classes.
-- `drugs_get_label_info`: Official FDA drug label sections (boxed warnings, contraindications, interactions, etc.).
-- `drugs_check_interactions`: Pairwise drug interaction cross-scanning over official FDA drug labels with evidence excerpts.
-- `drugs_get_adverse_events`: Top reported adverse reactions from FDA FAERS.
-- `drugs_get_recalls`: FDA enforcement and recall actions.
-
-### 🔬 Module 3: Diagnostics Support (`diagnostics`)
-- `diagnostics_lookup_condition`: Condition name lookup to ICD-10-CM codes.
-- `diagnostics_interpret_lab_value`: Rule-based interpretation of lab values against ~25 analyte reference ranges.
-- `diagnostics_explain_lab_test`: Patient-friendly explanations of lab tests (grade 6 reading level).
-- `diagnostics_symptom_to_codes`: Symptom text to candidate ICD-10-CM documentation codes.
-
-### 📚 Module 4: Medical Research (`research`)
-- `research_search_pubmed`: PubMed literature search with publication type filters.
-- `research_get_article`: Citation details, DOI, MeSH terms, and parsed XML abstract for a PMID.
-- `research_search_trials`: ClinicalTrials.gov search with status and phase filters.
-- `research_get_trial_details`: Detailed trial protocol and eligibility criteria for an NCT ID.
-- `research_summarize_evidence`: Evidence digest batch for LLM summarization.
-
-### 📋 Module 5: FHIR Patient Records (`fhir`)
-- `fhir_search_patients`: Search synthetic FHIR R4 patients.
-- `fhir_get_patient`: Patient demographics and MRN.
-- `fhir_get_conditions`: Active problem list.
-- `fhir_get_medications`: Active medication requests.
-- `fhir_get_observations`: Vital signs and lab history.
-- `fhir_get_encounters`: Visit timeline.
-- `fhir_get_patient_summary`: Aggregated clinical summary bundle (feeds the `patient-summary` widget).
-
-### 🤝 Module 6: Care Coordination (`care`)
-- `care_generate_handoff`: Standardized SBAR or narrative clinical handoff summary.
-- `care_reconcile_medications`: 3-column medication reconciliation diff identifying added, removed, and duplicate-risk drugs.
-- `care_draft_referral`: Specialist referral consultation request note.
-- `care_find_guidelines`: PubMed clinical practice guidelines.
-- `care_appointment_prep`: Patient visit preparation checklists.
-
----
-
-## 3. System Architecture & Gateway Layer
-
-```
-┌──────────────────────────────────────────────────────────────────────────┐
-│ MCP CLIENTS                      (NitroStudio / Claude Desktop / curl)    │
-└──────────────────────────────────────┬───────────────────────────────────┘
-                                       │  STDIO (dev) · HTTP+SSE (prod)
-┌──────────────────────────────────────▼───────────────────────────────────┐
-│ GATEWAY LAYER                                                            │
-│   EmergencyDetectionGuard -> ApiKeyGuard -> ScopeGuard                   │
-│   -> @RateLimit -> TrimPipe -> TOOL HANDLER                              │
-│   -> ClinicalSafetyInterceptor -> AuditLogInterceptor -> TimingInterceptor │
-│   -> ClinicalExceptionFilter                                             │
-└──────────────────────────────────────┬───────────────────────────────────┘
-                                       │
-┌──────────────────────────────────────▼───────────────────────────────────┐
-│ FEATURE MODULES                                                          │
-│   triage · drugs · diagnostics · research · fhir · care · core           │
-└──────────────────────────────────────┬───────────────────────────────────┘
-                                       │ HTTPS
-┌──────────────────────────────────────▼───────────────────────────────────┐
-│ LIVE UPSTREAM APIS                                                       │
-│   RxNorm · openFDA · PubMed · ClinicalTrials.gov · HAPI FHIR · ClinTables    │
-└──────────────────────────────────────────────────────────────────────────┘
+```text
+https://<your-deployment-domain>/mcp
 ```
 
----
+For a safe local demo, configure locally generated keys in `.env` and use the read-only key for normal calls. Never copy the placeholder values from `.env.example` into a public deployment.
 
-## 4. UI Widgets
+## 3. Tools and public API
 
-Vitalis includes 6 Next.js frontend widgets registered in `src/widgets/widget-manifest.json`:
-1. `patient-summary` (W5 ⭐ flagship): Aggregated patient EHR dashboard.
-2. `triage-result` (W1): Urgency tier badges and red-flag chips.
-3. `drug-safety-report` (W2): Severity-banded interaction grid and FDA evidence excerpts.
-4. `trial-list` (W4): Clinical trial cards with status chips.
-5. `lab-result-card` (W3): Quantitative reference-range card.
-6. `med-reconciliation` (W6): 3-column medication diff view.
+The runtime currently registers 29 core tools with the following controller-prefixed names.
 
----
+### Triage (`triage:read`)
 
-## 5. Getting Started & Setup
+- `triage_assess_symptoms`
+- `triage_check_red_flags`
+- `triage_get_care_options`
+
+### Drugs (`drugs:read`)
+
+- `drugs_search`
+- `drugs_get_label_info`
+- `drugs_check_interactions`
+- `drugs_get_adverse_events`
+- `drugs_get_recalls`
+
+### Diagnostics (`dx:read`)
+
+- `diagnostics_lookup_condition`
+- `diagnostics_interpret_lab_value`
+- `diagnostics_explain_lab_test`
+- `diagnostics_symptom_to_codes`
+
+### Research (`research:read`)
+
+- `research_search_pubmed`
+- `research_get_article`
+- `research_search_trials`
+- `research_get_trial_details`
+- `research_summarize_evidence`
+
+### FHIR (`fhir:read`)
+
+- `fhir_search_patients`
+- `fhir_get_patient`
+- `fhir_get_conditions`
+- `fhir_get_medications`
+- `fhir_get_observations`
+- `fhir_get_encounters`
+- `fhir_get_patient_summary`
+
+### Care (`care:read` / `care:write`)
+
+- `care_generate_handoff` (`care:read`)
+- `care_reconcile_medications` (`care:write`)
+- `care_draft_referral` (`care:write`)
+- `care_find_guidelines` (`care:read`)
+- `care_appointment_prep` (`care:read`)
+
+### Clearly labeled stretch tools
+
+- `diagnostics_lookup_icd11`
+- `fhir_get_allergies`
+- `fhir_get_immunizations`
+
+### Resources
+
+- `vitalis://safety-policy` — public safety policy
+- `vitalis://data-sources` — public upstream registry
+- `vitalis://audit/recent` — admin-only latest 50 audit entries
+- `vitalis://metrics` — admin-only telemetry
+- `health://checks` — framework health-check resource
+- `widget://examples` — framework-loaded widget examples
+
+## 4. Example MCP calls
+
+The HTTP MCP endpoint is `/mcp`. Headers are shown for API-key authentication; MCP clients may also pass `_meta.x-api-key` where supported.
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "triage_assess_symptoms",
+    "arguments": {
+      "symptoms": ["chest pain", "shortness of breath"],
+      "age": 55,
+      "sex": "male",
+      "_meta": { "x-api-key": "<read-write-key>" }
+    }
+  }
+}
+```
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "drug_check_interactions",
+    "arguments": {
+      "drugs": ["warfarin", "aspirin"],
+      "_meta": { "x-api-key": "<read-only-key>" }
+    }
+  }
+}
+```
+
+Successful clinical results include `_safety` and `_meta.durationMs`. FHIR and care results identify synthetic data. Errors use stable codes such as `AUTH_DENIED`, `SCOPE_DENIED`, `PATIENT_NOT_FOUND`, and `UPSTREAM_UNAVAILABLE`.
+
+## 5. Architecture
+
+```text
+MCP client / NitroStudio / Claude Desktop
+                 │
+                 ▼
+      NitroStack MCP transport (/mcp)
+                 │
+ Emergency guard → API/JWT auth → scope guard
+                 │
+       trim pipe → tool handler → safety
+                 │
+       audit event → timing/metrics → client
+                 │
+  Triage · Drugs · Diagnostics · Research · FHIR · Care
+                 │
+ RxNorm · RxClass · OpenFDA · PubMed · Trials · FHIR · Clinical Tables
+```
+
+The six widget routes are connected to their tools with `@Widget` and are bundled by NitroStack from `src/widgets/`.
+
+## 6. Authentication, scopes, and rate limits
+
+Configure credentials through environment variables only:
+
+```env
+API_KEY_CLINICIAN=<random-key-with-read-write-care-scopes>
+API_KEY_READONLY=<random-key-with-read-scopes>
+API_KEY_ADMIN=<random-key-with-admin-scope>
+VITALIS_ALLOW_ANONYMOUS_DEMO=false
+# Optional HS256 JWT support:
+# JWT_SECRET=<random-secret-at-least-16-bytes>
+```
+
+- `API_KEY_READONLY`: triage, drugs, diagnostics, research, and FHIR read scopes.
+- `API_KEY_CLINICIAN`: read scopes plus `care:read` and `care:write`.
+- `API_KEY_ADMIN`: explicit admin identity, wildcard tool access, and `admin:audit`.
+- Anonymous mode is disabled by default, must be explicitly enabled, and never receives care-write or admin scopes.
+- Unknown tools fail closed.
+- `vitalis://audit/recent` and `vitalis://metrics` require the configured admin identity.
+- If `JWT_SECRET` is set, bearer JWTs are validated as HS256 tokens with strict claims; JWTs do not inherit the API-key admin wildcard.
+
+Default tool limits are configured per module: research and heavy drug operations are limited to 10 requests/minute, FHIR to 20/minute, local triage/diagnostics to 120/minute, and care operations according to their tool cost. These limits are per authenticated subject.
+
+## 7. Clinical safety design
+
+Every clinical tool uses the shared gateway. The safety layer:
+
+1. scans nested input for emergency terms using escaped, case-insensitive word-boundary matching;
+2. never blocks a request merely because emergency terms are present;
+3. rewrites banned overreach such as “you have”/“diagnosis confirmed” and prescriptive dosing language;
+4. adds a disclaimer, urgency tier, and red-flag metadata;
+5. prepends emergency guidance when a red flag is detected;
+6. marks FHIR and care output as synthetic data.
+
+The embedded triage ruleset contains 30 validated rules. Missing or malformed safety data refuses startup. `VITALIS_SAFETY_LAYER=off` is test-only; outside `NODE_ENV=test` it is ignored and logged loudly.
+
+## 8. Data sources and terms
+
+| Source | Use | Policy |
+|---|---|---|
+| NLM RxNorm/RxClass | Drug names, RxCUI, classes | Public API; concurrency capped |
+| OpenFDA | Labels, FAERS, recalls | FDA terms and reporting-bias caveats apply |
+| NCBI PubMed | Search, citations, XML abstracts | NCBI `tool`/`email` etiquette required |
+| ClinicalTrials.gov v2 | Trial search/details | Public API; bounded requests |
+| HAPI FHIR R4 / SMART fallback | Synthetic FHIR records | Synthetic/Synthea data only |
+| NLM Clinical Tables | ICD-10-CM lookup | Public documentation-support service |
+| WHO ICD-11 (optional) | Optional classification lookup | Requires configured OAuth credentials; embedded fallback is labeled reference data |
+
+Respect each provider’s current terms, rate limits, attribution requirements, and availability. Upstream content is not a clinical recommendation.
+
+## 9. Local setup
 
 ### Prerequisites
-- Node.js >= 18.0.0
-- npm / npx
 
-### Installation & Environment
+- Node.js 18 or newer
+- npm
+
 ```bash
-git clone https://github.com/anshu/my-mcp-server.git
-cd my-mcp-server
-npm install
+git clone https://github.com/anshux1/health-care-mcp.git
+cd health-care-mcp
+npm ci
+npm --prefix src/widgets ci
+cp .env.example .env
+# Replace every credential placeholder with local values
 ```
 
-Configure `.env` environment variables (see `.env.example`):
+Development defaults to stdio. HTTP mode can be selected explicitly:
+
 ```env
-API_KEY_CLINICIAN=replace-with-clinician-key
-API_KEY_READONLY=replace-with-readonly-key
-API_KEY_ADMIN=replace-with-admin-key
-VITALIS_ALLOW_ANONYMOUS_DEMO=false
-# Optional JWT authentication; setting JWT_SECRET enables HS256 verification.
-# JWT_SECRET=replace-with-a-random-32-byte-secret
+NODE_ENV=development
+MCP_TRANSPORT_TYPE=http
+HOST=127.0.0.1
+PORT=3000
 ```
 
-Production startup requires at least one configured API key or `JWT_SECRET`. Anonymous demo access is disabled by default and, when explicitly enabled, is limited to read-only scopes. The `vitalis://audit/recent` and `vitalis://metrics` resources require the configured admin identity. `VITALIS_SAFETY_LAYER=off` is test-only; outside `NODE_ENV=test` it is ignored.
+Commands:
 
-### Running Locally
 ```bash
-# Development mode
-npm run dev
-
-# Build production bundle
-npm run build
-
-# Start production server
-npm start
+npm run dev             # NitroStack development server
+npm run typecheck       # TypeScript check
+npm test                # Unit + integration tests
+npm run test:coverage   # Coverage gate and HTML/JSON reports
+npm run widget:build    # Standalone Next.js widget build
+npm run build           # Server + widget production bundle
+npm run verify          # All default non-live gates
 ```
 
-### Testing
+Live upstream tests are opt-in:
+
 ```bash
-# Run unit & integration test suite
-npm test
+npm run test:live       # Requires network; sets LIVE_API_TESTS=true
+npm run fixtures:record # Explicitly capture sanitized public fixtures
 ```
 
----
+## 10. Deployment
 
-## 6. Responsible-Use & Clinical Disclaimer
+The primary documented target is Railway. See [`docs/deployment.md`](docs/deployment.md) for build/start commands, environment configuration, MCP endpoint setup, verification, audit storage, rollback, and the local stdio fallback.
 
-> **IMPORTANT DISCLAIMER**: Vitalis is developer infrastructure designed for clinical decision support research and hackathon demonstration purposes only. It is **not** a licensed medical device and is **not** intended for primary medical diagnosis, treatment, or acute care triage without human physician oversight. All FHIR patient records provided by the server are 100% synthetic (Synthea generator) and contain zero protected health information (PHI). Always consult a qualified healthcare professional in medical emergencies.
+At minimum, production must set `NODE_ENV=production`, `MCP_TRANSPORT_TYPE=http`, `HOST=0.0.0.0`, `PORT` from the platform, `CONTACT_EMAIL`, `NCBI_EMAIL`, and at least one API key or JWT secret. Do not put secrets in Git or `.env.example`.
+
+## 11. Limitations and responsible use
+
+- Vitalis does not diagnose, prescribe, or replace a clinician.
+- Emergency guidance is generic; users should contact local emergency services.
+- FHIR data is synthetic and must never be interpreted as real PHI.
+- FDA interaction detection is evidence cross-scanning, not a complete interaction database.
+- FAERS counts are voluntary reports, not incidence rates or proof of causation.
+- Public upstreams can be incomplete, rate-limited, or unavailable; partial/fallback status is surfaced.
+- JWT support is optional HS256 infrastructure, not a hosted identity provider.
+
+## 12. Roadmap and release status
+
+Completed remediation phases: gateway pipeline, authentication, safety, audit/metrics, shared HTTP, clinical modules, widgets, tests/coverage, and CI/configuration hardening.
+
+Remaining release work is operational: choose and configure a deployment, verify the public HTTPS endpoint with real deployment credentials, rehearse the demo, and run the final release gate. See `REMEDIATION_PLAN.md` Phases 11–12.
+
+## 13. Team, license, acknowledgements
+
+Vitalis is maintained as an open-source clinical MCP demonstration project by the repository team. Contributions should preserve the safety, audit, authentication, and synthetic-data guarantees.
+
+License: see the repository license file when published.
+
+Built with [NitroStack](https://nitrostack.ai), the [Model Context Protocol](https://modelcontextprotocol.io/), NLM services, OpenFDA, NCBI, ClinicalTrials.gov, HAPI FHIR, and the broader public clinical-data ecosystem.

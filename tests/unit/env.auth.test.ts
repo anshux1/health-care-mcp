@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAuthConfigurationErrors } from '../../src/config/env.js';
+import { getAuthConfigurationErrors, getDeploymentConfigurationErrors } from '../../src/config/env.js';
 
 const productionWithoutCredentials = {
   NODE_ENV: 'production' as const,
@@ -39,6 +39,26 @@ describe('production authentication configuration', () => {
       getAuthConfigurationErrors({
         ...productionWithoutCredentials,
         NODE_ENV: 'development',
+      }),
+    ).toEqual([]);
+  });
+
+  it('requires contact and NCBI etiquette email in production', () => {
+    const config = {
+      ...productionWithoutCredentials,
+      API_KEY_CLINICIAN: 'configured-clinician-key',
+      CONTACT_EMAIL: undefined,
+      NCBI_EMAIL: undefined,
+    } as const;
+    expect(getDeploymentConfigurationErrors(config)).toEqual([
+      expect.stringContaining('CONTACT_EMAIL'),
+      expect.stringContaining('NCBI_EMAIL'),
+    ]);
+    expect(
+      getDeploymentConfigurationErrors({
+        ...config,
+        CONTACT_EMAIL: 'ops@example.com',
+        NCBI_EMAIL: 'ncbi@example.com',
       }),
     ).toEqual([]);
   });

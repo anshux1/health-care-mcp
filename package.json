@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit",
     "widget:build": "npm --prefix src/widgets run build",
     "verify": "npm run typecheck && npm test && npm run widget:build && npm run build",
+    "release:check": "npm run verify && node scripts/verify-release.mjs",
     "widget": "npm --prefix src/widgets"
   },
   "dependencies": {

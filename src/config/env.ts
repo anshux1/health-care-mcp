@@ -83,6 +83,9 @@ export type AuthEnvironmentConfig = Pick<
   | 'JWT_SECRET'
 >;
 
+export type DeploymentEnvironmentConfig = AuthEnvironmentConfig &
+  Pick<Env, 'CONTACT_EMAIL' | 'NCBI_EMAIL'>;
+
 /**
  * Returns deployment-time authentication configuration errors without reading
  * process.env. Keeping this pure makes the production fail-closed rule easy to
@@ -106,6 +109,19 @@ export function getAuthConfigurationErrors(config: AuthEnvironmentConfig): strin
       ];
 }
 
+export function getDeploymentConfigurationErrors(config: DeploymentEnvironmentConfig): string[] {
+  if (config.NODE_ENV !== 'production') return [];
+
+  const errors = [...getAuthConfigurationErrors(config)];
+  if (!config.CONTACT_EMAIL) {
+    errors.push('CONTACT_EMAIL is required in production for the outbound User-Agent policy.');
+  }
+  if (!config.NCBI_EMAIL) {
+    errors.push('NCBI_EMAIL is required in production for PubMed/NCBI etiquette.');
+  }
+  return errors;
+}
+
 function loadEnv(): Env {
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
@@ -116,9 +132,9 @@ function loadEnv(): Env {
     process.exit(1);
   }
 
-  const authErrors = getAuthConfigurationErrors(result.data);
-  if (authErrors.length > 0) {
-    console.error('❌ Invalid authentication configuration:', JSON.stringify(authErrors, null, 2));
+  const deploymentErrors = getDeploymentConfigurationErrors(result.data);
+  if (deploymentErrors.length > 0) {
+    console.error('❌ Invalid production configuration:', JSON.stringify(deploymentErrors, null, 2));
     process.exit(1);
   }
 

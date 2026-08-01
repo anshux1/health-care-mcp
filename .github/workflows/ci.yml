@@ -15,6 +15,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            src/widgets/package-lock.json
 
       - name: Install server dependencies
         run: npm ci
@@ -23,10 +26,18 @@ jobs:
         run: npm --prefix src/widgets ci
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
-      - name: Test
-        run: npm test --if-present
+      - name: Unit and integration tests
+        run: npm test
 
-      - name: Build (TypeScript + widgets)
+      - name: Coverage gate
+        run: npm run test:coverage
+
+      - name: Standalone widget build
+        run: npm run widget:build
+
+      - name: Server build
         run: npm run build
+
+      # Live upstream tests are intentionally opt-in and are not run in CI by default.

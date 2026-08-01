@@ -13,11 +13,19 @@ import 'dotenv/config';
 import { DIContainer, McpApplicationFactory, OAuthModule } from '@nitrostack/core';
 import { AppModule } from './app.module.js';
 import { HttpContextModule } from './gateway/http-context.module.js';
+import { env } from './config/env.js';
 
 /**
  * Bootstrap the application
  */
 async function bootstrap() {
+  console.error(
+    `Vitalis auth enforcement: ${env.VITALIS_ALLOW_ANONYMOUS_DEMO ? 'anonymous demo opt-in' : 'credential required'}; ` +
+      `configured API keys: ${[env.API_KEY_CLINICIAN, env.API_KEY_READONLY, env.API_KEY_ADMIN].filter(Boolean).length}; ` +
+      `JWT: ${env.JWT_SECRET ? 'enabled' : 'disabled'}`,
+  );
+  console.error(`Vitalis anonymous demo mode: ${env.VITALIS_ALLOW_ANONYMOUS_DEMO ? 'active (read-only)' : 'inactive'}`);
+
   if (process.env.VITALIS_SAFETY_LAYER === 'off') {
     console.error(
       '⚠️ WARNING: VITALIS_SAFETY_LAYER=off. Output safety rewriting is disabled for this process; use only in controlled tests.',

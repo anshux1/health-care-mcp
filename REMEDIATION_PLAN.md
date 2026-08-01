@@ -33,13 +33,14 @@ Completed in the first implementation pass:
 - [x] Completed module-specific clinical fixes across drugs, diagnostics, FHIR, care, and triage.
 - [x] Completed all six widgets with SDK interactions, safe link/tool actions, and framework-loaded example manifests.
 - [x] Completed the unit/integration/fixture/live test suite and coverage gate configuration.
+- [x] Completed CI, production configuration validation, standardized verification scripts, and operational logging hardening.
 
 Still outstanding after this pass:
 
 - [ ] Complete the remaining integration suite and coverage gates.
 - [ ] Implement widget state/tool-call interactions required by the UX plan.
 - [ ] Complete all output-contract, data-coverage, and health-check refinements.
-- [ ] Finish README, deployment, public endpoint, and demo verification.
+- [ ] Verify a public endpoint, rehearse the demo, and complete the release gate.
 
 ## 0. Current Baseline
 
@@ -933,6 +934,8 @@ Update `test:live` so it succeeds when live tests are present and gives a useful
 
 # Phase 10 — CI, Configuration, and Operational Hardening
 
+**Status: Complete.** Production configuration now fails closed, startup auth/safety modes are logged to stderr, package verification scripts are standardized, and CI runs typecheck, tests, coverage, widget build, and server build without live tests.
+
 ## Goal
 
 Make local, CI, and production behavior consistent.
@@ -941,19 +944,19 @@ Make local, CI, and production behavior consistent.
 
 Update `src/config/env.ts` and `.env.example`:
 
-- [ ] Make production-required values required when `NODE_ENV=production`.
-- [ ] Require `CONTACT_EMAIL` for NCBI/User-Agent policy.
-- [ ] Require `NCBI_EMAIL` for PubMed usage or explicitly document anonymous fallback.
-- [ ] Require credentials for non-anonymous production mode.
-- [ ] Keep all upstream base URLs overrideable.
-- [ ] Keep `MCP_TRANSPORT_TYPE`, `PORT`, `HOST`, and CORS documented.
-- [ ] Make anonymous mode default false.
-- [ ] Make JWT secret required only when JWT is enabled.
-- [ ] Do not place real credentials in `.env.example`.
+- [x] Make production-required values required when `NODE_ENV=production`.
+- [x] Require `CONTACT_EMAIL` for NCBI/User-Agent policy.
+- [x] Require `NCBI_EMAIL` for PubMed usage.
+- [x] Require credentials for non-anonymous production mode.
+- [x] Keep all upstream base URLs overrideable.
+- [x] Keep `MCP_TRANSPORT_TYPE`, `PORT`, `HOST`, and CORS documented.
+- [x] Make anonymous mode default false.
+- [x] Make JWT secret required only when JWT is enabled by configuration.
+- [x] Do not place real credentials in `.env.example`.
 
 ## 10.2 Package scripts
 
-Add or verify:
+Verified and standardized:
 
 ```json
 {
@@ -972,25 +975,25 @@ Use names that match the final repository conventions.
 
 Update `.github/workflows/ci.yml`:
 
-- [ ] Install root dependencies.
-- [ ] Install widget dependencies.
-- [ ] Run root typecheck.
-- [ ] Run unit/integration tests.
-- [ ] Run coverage.
-- [ ] Run standalone widget build.
-- [ ] Run server build.
-- [ ] Do not run live tests by default unless explicitly configured.
-- [ ] Cache npm dependencies.
-- [ ] Add tag-triggered deployment only after deployment credentials are configured securely.
+- [x] Install root dependencies.
+- [x] Install widget dependencies.
+- [x] Run root typecheck.
+- [x] Run unit/integration tests.
+- [x] Run coverage.
+- [x] Run standalone widget build.
+- [x] Run server build.
+- [x] Do not run live tests by default unless explicitly configured.
+- [x] Cache npm dependencies.
+- [x] Leave tag-triggered deployment disabled until deployment credentials are configured securely.
 
 ## 10.4 Runtime logs
 
-- [ ] Ensure all application logs use `ctx.logger` or stderr-compatible logging.
-- [ ] Do not write normal logs to stdout under stdio transport.
-- [ ] Log a loud warning when safety is intentionally disabled.
-- [ ] Log the auth enforcement mode at startup.
-- [ ] Log whether anonymous demo mode is active.
-- [ ] Avoid logging secrets or raw patient/free-text input.
+- [x] Ensure all application logs use `ctx.logger` or stderr-compatible logging.
+- [x] Do not write normal logs to stdout under stdio transport.
+- [x] Log a loud warning when safety is intentionally disabled.
+- [x] Log the auth enforcement mode at startup.
+- [x] Log whether anonymous demo mode is active.
+- [x] Avoid logging secrets or raw patient/free-text input.
 
 ## Acceptance criteria
 
@@ -1002,13 +1005,17 @@ Update `.github/workflows/ci.yml`:
 
 # Phase 11 — Documentation and Deployment
 
+**Status: In progress.** README and Railway deployment documentation are complete. Public endpoint verification and demo rehearsal remain pending until deployment credentials and a live hosting project are available.
+
 ## Goal
 
 Make the repository honestly usable by a new developer, judge, or deployment operator.
 
 ## 11.1 README updates
 
-Expand `README.md` to cover the plan’s required sections:
+**Status: Complete.** `README.md` now covers the required developer, judge, API, safety, data-source, testing, deployment, and responsible-use sections.
+
+The README covers:
 
 1. Title, tagline, badges, and supported Node version
 2. 30-second pitch
@@ -1028,6 +1035,8 @@ Expand `README.md` to cover the plan’s required sections:
 Ensure README tool names match actual `tools/list` output.
 
 ## 11.2 Deployment
+
+**Status: Complete for documentation.** Railway is the selected primary target; the procedure is documented in `docs/deployment.md`.
 
 Choose and document one primary target:
 
@@ -1087,6 +1096,8 @@ The demo must visibly prove:
 ---
 
 # Phase 12 — Final Verification and Release Gate
+
+**Status: Local gate implemented; final release remains pending public endpoint verification, demo rehearsal, and release credentials.** `npm run release:check` validates the local registration/manifests without claiming a public endpoint.
 
 ## Release checklist
 
