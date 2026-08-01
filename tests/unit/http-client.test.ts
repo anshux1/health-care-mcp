@@ -7,6 +7,7 @@ import {
   HttpClientService,
   UpstreamError,
 } from '../../src/integrations/http-client.service.js';
+import { getExternalCalls, runWithExternalCallContext } from '../../src/gateway/request-context.js';
 
 /** Build a minimal Response-like object. */
 function fakeResponse(
@@ -59,6 +60,45 @@ describe('HttpClientService', () => {
 
     const headers = fetchImpl.mock.calls[0][1].headers;
     expect(headers['User-Agent']).toMatch(/^vitalis-mcp\/1\.0/);
+  });
+
+  it('records sanitized outbound metadata for audit consumers', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(fakeResponse(200, 'xml'));
+    const { client } = makeClient(fetchImpl);
+
+    let calls: ReturnType<typeof getExternalCalls>;
+    await runWithExternalCallContext(async () => {
+      await client.getText({ ...OPTS, api: 'pubmed', headers: { Accept: 'application/xml' } });
+      calls = getExternalCalls();
+    });
+
+    expect(calls).toEqual([
+      expect.objectContaining({
+        api: 'pubmed',
+        path: 'https://example.com/data?q=<redacted>',
+        status: 200,
+      }),
+    ]);
+  });
+
+  it('supports bounded form POSTs through the shared request policy', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(fakeResponse(200, { access_token: 'token' }));
+    const { client } = makeClient(fetchImpl);
+
+    const result = await client.postForm<{ access_token: string }>({
+      api: 'token-service',
+      url: 'https://example.com/token',
+      body: 'grant_type=client_credentials',
+    });
+
+    expect(result.data.access_token).toBe('token');
+    expect(fetchImpl.mock.calls[0][1]).toMatchObject({
+      method: 'POST',
+      body: 'grant_type=client_credentials',
+    });
+    expect(fetchImpl.mock.calls[0][1].headers['Content-Type']).toBe(
+      'application/x-www-form-urlencoded',
+    );
   });
 
   it('retries 5xx with exponential backoff and succeeds', async () => {
@@ -162,6 +202,16 @@ describe('HttpClientService', () => {
     const { client } = makeClient(fetchImpl);
 
     const err = await client.getJson(OPTS).catch((e) => e);
+    expect(err).toBeInstanceOf(UpstreamError);
+    expect(err.code).toBe('RESPONSE_TOO_LARGE');
+  });
+
+  it('enforces the response cap in bytes rather than UTF-16 code units', async () => {
+    const bigUtf8Body = '😀'.repeat(300_000); // ~1.2 MB, but fewer than 1,048,577 JS characters
+    const fetchImpl = vi.fn().mockResolvedValue(fakeResponse(200, bigUtf8Body));
+    const { client } = makeClient(fetchImpl);
+
+    const err = await client.getText(OPTS).catch((e) => e);
     expect(err).toBeInstanceOf(UpstreamError);
     expect(err.code).toBe('RESPONSE_TOO_LARGE');
   });

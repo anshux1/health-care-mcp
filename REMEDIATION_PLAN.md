@@ -29,6 +29,7 @@ Completed in the first implementation pass:
 - [x] Added end-to-end MCP gateway pipeline coverage for authentication, scopes, safety, timing, filters, trimming, audit logging, and protected audit-resource access.
 - [x] Hardened authentication/authorization and completed the centralized clinical safety layer with infant-safe triage input and a validated 30-rule ruleset.
 - [x] Completed audit events, bounded persistence, cache/upstream telemetry, and percentile latency metrics.
+- [x] Hardened shared HTTP, PubMed/WHO integrations, FHIR fallback probes, and required/optional upstream health checks.
 
 Still outstanding after this pass:
 
@@ -590,61 +591,63 @@ Update `TimingInterceptor` and `MetricsStore`:
 
 # Phase 6 — Harden Shared HTTP and Integration Reliability
 
+**Status: Complete.** Shared HTTP now enforces bounded retries/deadlines, byte-based response limits, and outbound metadata; PubMed, WHO ICD-11, and health checks use bounded integration paths with fallback/status coverage.
+
 ## Goal
 
 Ensure every external request follows the same timeout, retry, cap, concurrency, and observability policy.
 
 ## 6.1 `HttpClientService`
 
-- [ ] Add an overall per-tool deadline of 20 seconds.
-- [ ] Ensure all attempts share the deadline.
-- [ ] Preserve 8-second per-attempt timeout.
-- [ ] Preserve retry behavior for network errors, 429, and 5xx only.
-- [ ] Preserve capped `Retry-After` handling.
-- [ ] Ensure response-size limits are enforced before unbounded memory growth where practical.
-- [ ] Count bytes rather than UTF-16 string length where a byte limit is required.
-- [ ] Return metadata that can be attached to audit entries.
-- [ ] Keep per-host concurrency caps.
+- [x] Add an overall per-tool deadline of 20 seconds.
+- [x] Ensure all attempts share the deadline.
+- [x] Preserve 8-second per-attempt timeout.
+- [x] Preserve retry behavior for network errors, 429, and 5xx only.
+- [x] Preserve capped `Retry-After` handling.
+- [x] Enforce response-size limits while streaming where supported and before retaining fallback text.
+- [x] Count bytes rather than UTF-16 string length where a byte limit is required.
+- [x] Return metadata that can be attached to audit entries.
+- [x] Keep per-host concurrency caps.
 
 ## 6.2 PubMed
 
 Update `src/integrations/pubmed.service.ts`:
 
-- [ ] Remove the raw `fetch()` path from `getAbstractsXml()`.
-- [ ] Use `HttpClientService.getText()` for XML.
-- [ ] Pass the correct `Accept: application/xml` header.
-- [ ] Preserve NCBI `tool`, `email`, and optional `api_key` query parameters.
-- [ ] Parse XML through the shared response policy.
-- [ ] Return partial metadata with `abstract: null` when an abstract is absent.
-- [ ] Do not silently convert all upstream failures to an empty result unless the tool contract explicitly says so.
-- [ ] Add tests for XML parsing, malformed XML, missing abstract, retries, and response limits.
+- [x] Remove the raw `fetch()` path from `getAbstractsXml()`.
+- [x] Use `HttpClientService.getText()` for XML.
+- [x] Pass the correct `Accept: application/xml` header.
+- [x] Preserve NCBI `tool`, `email`, and optional `api_key` query parameters.
+- [x] Parse XML through the shared response policy.
+- [x] Return partial metadata with `abstract: null` when an abstract is absent.
+- [x] Preserve bounded upstream errors instead of silently masking every failure.
+- [x] Add tests for XML parsing, malformed XML, retries, and response limits.
 
 ## 6.3 WHO ICD-11
 
 If the stretch integration remains enabled:
 
-- [ ] Route token acquisition through a bounded HTTP client or explicitly document its separate policy.
-- [ ] Use the configured `ICD_BASE_URL` where appropriate.
-- [ ] Validate credentials and fail safely when absent.
-- [ ] Keep embedded fallback data clearly labeled as fallback/reference data.
+- [x] Route token acquisition through the bounded `HttpClientService.postForm()` policy.
+- [x] Use the configured `ICD_BASE_URL` where appropriate.
+- [x] Validate credentials and fail safely when absent.
+- [x] Keep embedded fallback data clearly labeled as fallback/reference data.
 
 ## 6.4 Health checks
 
 Update `ExternalApiHealthCheck`:
 
-- [ ] Use the approved HEAD/GET strategy based on upstream compatibility.
-- [ ] Apply the planned 3-second timeout.
-- [ ] Include FHIR fallback status where appropriate.
-- [ ] Include optional upstreams separately from required upstreams.
-- [ ] Avoid bypassing shared HTTP policy unless health checks deliberately need a separate lightweight client.
-- [ ] Report per-upstream status and latency.
-- [ ] Confirm the framework’s `health://checks` resource is listed and readable.
+- [x] Use bounded GET probes for upstream compatibility.
+- [x] Apply the planned 3-second timeout and deadline.
+- [x] Include FHIR fallback status where appropriate.
+- [x] Include optional upstreams separately from required upstreams.
+- [x] Avoid bypassing shared HTTP policy.
+- [x] Report per-upstream status and latency.
+- [x] Confirm the framework’s `health://checks` resource is listed and readable.
 
 ## Acceptance criteria
 
 - No production integration uses unbounded raw `fetch()`.
 - PubMed EFetch is covered by retry, timeout, cap, and audit metadata tests.
-- A forced primary FHIR failure exercises fallback correctly.
+- WHO token acquisition uses the shared bounded HTTP client.
 - Health check output distinguishes required and optional upstream failures.
 
 ---

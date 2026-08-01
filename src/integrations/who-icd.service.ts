@@ -78,14 +78,17 @@ export class WhoIcdService {
         scope: 'https://id.who.int/icd/api/.default',
       });
 
-      const res = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      const res = await this.http.postForm<any>({
+        api: 'who_icd_auth',
+        url: tokenUrl,
         body: body.toString(),
+        timeoutMs: 8_000,
+        deadlineMs: 20_000,
+        maxRetries: 1,
+        headers: { Accept: 'application/json' },
       });
 
-      if (!res.ok) return null;
-      const data: any = await res.json();
+      const data = res.data;
       this.accessToken = data.access_token ?? null;
       this.tokenExpiresAt = now + (data.expires_in ?? 3600);
       return this.accessToken;

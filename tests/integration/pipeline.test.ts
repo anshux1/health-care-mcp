@@ -103,7 +103,9 @@ describe('clinical gateway pipeline', () => {
     expect(toolNames).toContain('care_draft_referral');
 
     const resources = await client.listResources();
-    expect(resources.resources.map((resource) => resource.uri)).toContain('vitalis://audit/recent');
+    expect(resources.resources.map((resource) => resource.uri)).toEqual(
+      expect.arrayContaining(['vitalis://audit/recent', 'vitalis://metrics', 'health://checks']),
+    );
   });
 
   it('rejects a tool call when the API key is missing', async () => {

@@ -29,6 +29,10 @@ export interface HttpRequestOptions {
   deadlineMs?: number;
   /** Retries after the first attempt. Default 2. */
   maxRetries?: number;
+  /** HTTP method; GET by default. */
+  method?: 'GET' | 'POST';
+  /** Optional request body for POST calls. */
+  body?: string;
   /** Concurrency key override (defaults to URL hostname). */
   concurrencyKey?: string;
   /** Max concurrent requests for the key (defaults per §4.3 map). */
@@ -149,6 +153,36 @@ export class HttpClientService {
   /** GET raw text (e.g. PubMed EFetch XML). Same retry/timeout/caps as getJson. */
   async getText(opts: HttpRequestOptions): Promise<HttpResponse<string>> {
     return this.execute(opts, (response) => this.readTextCapped(response, opts.api));
+  }
+
+  /** Bounded form POST used by optional OAuth token acquisition. */
+  async postForm<T = unknown>(
+    opts: Omit<HttpRequestOptions, 'method' | 'body'> & { body: string },
+  ): Promise<HttpResponse<T>> {
+    return this.execute(
+      {
+        ...opts,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Accept: 'application/json',
+          ...opts.headers,
+        },
+      },
+      async (response) => {
+        const text = await this.readTextCapped(response, opts.api);
+        try {
+          return JSON.parse(text) as T;
+        } catch {
+          throw new UpstreamError(
+            `${opts.api} returned non-JSON body`,
+            opts.api,
+            'INVALID_RESPONSE',
+            response.status,
+          );
+        }
+      },
+    );
   }
 
   /**
@@ -284,23 +318,53 @@ export class HttpClientService {
     try {
       const fn = this.customFetch ?? globalThis.fetch;
       return await fn(opts.url, {
-        method: 'GET',
+        method: opts.method ?? 'GET',
         signal: controller.signal,
         headers: {
           'User-Agent': `vitalis-mcp/1.0 (hackathon; contact: ${env.CONTACT_EMAIL ?? 'unset'})`,
           Accept: 'application/json',
           ...opts.headers,
         },
+        ...(opts.body !== undefined ? { body: opts.body } : {}),
       });
     } finally {
       clearTimeout(timer);
     }
   }
 
-  /** Enforces the 1 MB response cap; returns raw body text. */
+  /** Enforces the 1 MB response cap; counts bytes before buffering streams. */
   private async readTextCapped(response: Response, api: string): Promise<string> {
+    if (response.body?.getReader) {
+      const reader = response.body.getReader();
+      const chunks: Buffer[] = [];
+      let totalBytes = 0;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = Buffer.from(value);
+          totalBytes += chunk.byteLength;
+          if (totalBytes > MAX_RESPONSE_BYTES) {
+            await reader.cancel();
+            throw new UpstreamError(
+              `${api} response exceeded ${MAX_RESPONSE_BYTES} bytes`,
+              api,
+              'RESPONSE_TOO_LARGE',
+              response.status,
+            );
+          }
+          chunks.push(chunk);
+        }
+      } finally {
+        reader.releaseLock();
+      }
+      return Buffer.concat(chunks, totalBytes).toString('utf8');
+    }
+
+    // Test doubles and older Response implementations may expose only text().
+    // Still enforce the byte limit rather than JavaScript UTF-16 code units.
     const text = await response.text();
-    if (text.length > MAX_RESPONSE_BYTES) {
+    if (Buffer.byteLength(text, 'utf8') > MAX_RESPONSE_BYTES) {
       throw new UpstreamError(
         `${api} response exceeded ${MAX_RESPONSE_BYTES} bytes`,
         api,
