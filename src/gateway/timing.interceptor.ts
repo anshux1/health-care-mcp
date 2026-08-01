@@ -1,9 +1,10 @@
 /**
  * TimingInterceptor — Appends _meta.durationMs performance metadata and feeds MetricsStore (BUILD_PLAN.md §3.1 & §13-S8).
  */
-import { InterceptorInterface, ExecutionContext, Injectable } from '@nitrostack/core';
+import { Interceptor, InterceptorInterface, ExecutionContext, Injectable } from '@nitrostack/core';
 import { MetricsStore } from './metrics.store.js';
 
+@Interceptor()
 @Injectable({ deps: [MetricsStore] })
 export class TimingInterceptor implements InterceptorInterface {
   constructor(private readonly metricsStore: MetricsStore) {}

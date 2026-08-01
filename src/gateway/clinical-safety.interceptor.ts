@@ -4,8 +4,9 @@
  * Supported languages: EN (English), ES (Spanish), HI (Hindi).
  * Can be toggled off via VITALIS_SAFETY_LAYER=off for demo comparison.
  */
-import { InterceptorInterface, ExecutionContext, Injectable } from '@nitrostack/core';
+import { Interceptor, InterceptorInterface, ExecutionContext, Injectable } from '@nitrostack/core';
 import { rewriteBannedPhrases } from './banned-phrases.js';
+import { detectEmergencyTerms } from './emergency-detection.guard.js';
 import { env } from '../config/env.js';
 
 export const DISCLAIMERS: Record<string, string> = {
@@ -14,6 +15,7 @@ export const DISCLAIMERS: Record<string, string> = {
   hi: 'केवल सूचनात्मक उद्देश्यों के लिए। यह चिकित्सीय सलाह, निदान या उपचार नहीं है। व्यक्तिगत स्वास्थ्य संबंधी प्रश्नों के लिए हमेशा डॉक्टर से परामर्श लें।',
 };
 
+@Interceptor()
 @Injectable()
 export class ClinicalSafetyInterceptor implements InterceptorInterface {
   async intercept(context: ExecutionContext, next: () => Promise<any>): Promise<any> {
@@ -34,7 +36,13 @@ export class ClinicalSafetyInterceptor implements InterceptorInterface {
     // 2. Extract or create _safety envelope
     const existingSafety = sanitizedResponse._safety ?? {};
     const emergencyContext = (context as any).emergency;
-    const matchedEmergencyTerms: string[] = emergencyContext?.matched_terms ?? [];
+    const preDetectedTerms: string[] = emergencyContext?.matched_terms ?? [];
+    // Tool arguments are attached by UseClinicalGateway immediately before the
+    // handler runs because NitroStack does not expose them to guards. Re-scan
+    // here so the post-handler safety layer still escalates real tool input.
+    const inputDetectedTerms = detectEmergencyTerms((context as any).input);
+    const matchedEmergencyTerms = [...new Set([...preDetectedTerms, ...inputDetectedTerms])];
+    (context as any).emergency = { matched_terms: matchedEmergencyTerms };
 
     let urgencyTier = existingSafety.urgency_tier ?? 'not_applicable';
     const redFlagsDetected: string[] = [...(existingSafety.red_flags_detected ?? [])];

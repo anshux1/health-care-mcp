@@ -11,6 +11,56 @@ const labExplanationsData = loadDataJson('lab-explanations.json');
 
 export type LabFlag = 'low' | 'normal' | 'high' | 'critical_low' | 'critical_high' | 'unknown';
 
+type UnitConversion = {
+  value: number;
+  unit: string;
+  converted: boolean;
+};
+
+function normalizeUnit(unit: string): string {
+  return unit
+    .trim()
+    .toLowerCase()
+    .replace(/[\u00b5\u03bc]/g, 'u')
+    .replace(/\s+/g, '')
+    .replace(/per/g, '/');
+}
+
+/** Converts supported alternate units into the embedded table's canonical unit. */
+function convertToCanonicalUnit(
+  analyte: string,
+  value: number,
+  unit: string,
+  canonicalUnit: string,
+): UnitConversion {
+  const input = normalizeUnit(unit);
+  if (input === normalizeUnit(canonicalUnit)) {
+    return { value, unit: canonicalUnit, converted: false };
+  }
+
+  const factorByAnalyte: Record<string, Record<string, number>> = {
+    glucose: { 'mmol/l': 18.0182 },
+    creatinine: { 'umol/l': 1 / 88.4 },
+    total_cholesterol: { 'mmol/l': 38.67 },
+    ldl: { 'mmol/l': 38.67 },
+    hdl: { 'mmol/l': 38.67 },
+    triglycerides: { 'mmol/l': 88.57 },
+  };
+
+  const factor = factorByAnalyte[analyte]?.[input];
+  if (factor === undefined) {
+    throw new Error(
+      `VALIDATION_ERROR: Unsupported unit "${unit}" for ${analyte}. Expected ${canonicalUnit}`,
+    );
+  }
+
+  return {
+    value: value * factor,
+    unit: canonicalUnit,
+    converted: true,
+  };
+}
+
 @Injectable({ deps: [ClinicalTablesService] })
 export class DiagnosticsService {
   private readonly labRanges: Record<
@@ -62,19 +112,23 @@ export class DiagnosticsService {
       };
     }
 
+    const conversion = convertToCanonicalUnit(key, value, unit, rangeObj.canonical_unit);
+    const canonicalValue = conversion.value;
+    const canonicalUnit = conversion.unit;
+
     let flag: LabFlag = 'normal';
     let possibleCauses: string[] = [];
 
-    if (rangeObj.critical_low !== undefined && value <= rangeObj.critical_low) {
+    if (rangeObj.critical_low !== undefined && canonicalValue <= rangeObj.critical_low) {
       flag = 'critical_low';
       possibleCauses = rangeObj.possible_causes_low;
-    } else if (rangeObj.critical_high !== undefined && value >= rangeObj.critical_high) {
+    } else if (rangeObj.critical_high !== undefined && canonicalValue >= rangeObj.critical_high) {
       flag = 'critical_high';
       possibleCauses = rangeObj.possible_causes_high;
-    } else if (value < rangeObj.low) {
+    } else if (canonicalValue < rangeObj.low) {
       flag = 'low';
       possibleCauses = rangeObj.possible_causes_low;
-    } else if (value > rangeObj.high) {
+    } else if (canonicalValue > rangeObj.high) {
       flag = 'high';
       possibleCauses = rangeObj.possible_causes_high;
     } else {
@@ -84,8 +138,10 @@ export class DiagnosticsService {
 
     return {
       analyte: rangeObj.name,
-      value,
-      unit,
+      value: canonicalValue,
+      unit: canonicalUnit,
+      original_value: value,
+      original_unit: unit,
       flag,
       reference_range: {
         low: rangeObj.low,
@@ -95,7 +151,8 @@ export class DiagnosticsService {
       possible_causes: possibleCauses,
       caveats:
         'Reference ranges vary slightly by laboratory, method, age, and sex. ' +
-        'Results should always be interpreted by the ordering physician in clinical context.',
+        'Results should always be interpreted by the ordering physician in clinical context.' +
+        (conversion.converted ? ` Value converted from ${unit} to ${rangeObj.canonical_unit}.` : ''),
     };
   }
 

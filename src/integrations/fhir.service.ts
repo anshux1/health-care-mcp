@@ -5,7 +5,7 @@
  * All data is synthetic (Synthea). Outputs stamp synthetic_data: true.
  */
 import { Injectable } from '@nitrostack/core';
-import { HttpClientService } from './http-client.service.js';
+import { HttpClientService, UpstreamError } from './http-client.service.js';
 import { env } from '../config/env.js';
 
 export interface FhirPatientSummary {
@@ -101,6 +101,18 @@ export class FhirService {
       });
       return { data: res.data, serverUsed: env.FHIR_BASE_URL };
     } catch (primaryErr) {
+      // A resource-specific 4xx is not an upstream outage. Preserve it so
+      // callers can return PATIENT_NOT_FOUND/validation semantics instead of
+      // querying a different synthetic dataset for the same identifier.
+      if (
+        primaryErr instanceof UpstreamError &&
+        primaryErr.status !== undefined &&
+        primaryErr.status >= 400 &&
+        primaryErr.status < 500 &&
+        primaryErr.status !== 429
+      ) {
+        throw primaryErr;
+      }
       if (env.FHIR_BASE_URL_FALLBACK) {
         const fallbackUrl = `${env.FHIR_BASE_URL_FALLBACK}${path.startsWith('/') ? '' : '/'}${path}`;
         const res = await this.http.getJson<T>({
@@ -167,7 +179,19 @@ export class FhirService {
 
   /** Get single patient demographics. */
   async getPatient(patientId: string): Promise<{ patient: FhirPatientSummary; server_used: string }> {
-    const { data: p, serverUsed } = await this.getFhir<any>(`/Patient/${encodeURIComponent(patientId)}`);
+    let data: any;
+    let serverUsed: string;
+    try {
+      const result = await this.getFhir<any>(`/Patient/${encodeURIComponent(patientId)}`);
+      data = result.data;
+      serverUsed = result.serverUsed;
+    } catch (error) {
+      if (error instanceof UpstreamError && error.status === 404) {
+        throw new Error(`PATIENT_NOT_FOUND: FHIR patient '${patientId}' was not found.`);
+      }
+      throw error;
+    }
+    const p = data;
 
     const officialName = (p.name ?? []).find((n: any) => n.use === 'official') ?? p.name?.[0];
     const given = (officialName?.given ?? []).join(' ');

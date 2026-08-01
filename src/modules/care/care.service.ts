@@ -78,6 +78,19 @@ export class CareService {
     };
   }
 
+  private async normalizeMedication(medication: string): Promise<string> {
+    const fallback = medication.trim().toLowerCase();
+    try {
+      const rxcui = await this.rxnorm.resolveName(medication);
+      if (!rxcui) return fallback;
+      const properties = await this.rxnorm.getProperties(rxcui);
+      return properties?.name?.trim().toLowerCase() ?? fallback;
+    } catch {
+      // RxNorm is an enhancement, not a reason to fail reconciliation.
+      return fallback;
+    }
+  }
+
   /** Reconcile two medication lists to identify discrepancies and duplicate risks. */
   async reconcileMedications(
     listA: string[],
@@ -85,50 +98,56 @@ export class CareService {
     labelA: string = 'List A',
     labelB: string = 'List B',
   ) {
-    const normA = listA.map((m) => m.trim().toLowerCase());
-    const normB = listB.map((m) => m.trim().toLowerCase());
+    const normalizedA = await Promise.all(listA.map((medication) => this.normalizeMedication(medication)));
+    const normalizedB = await Promise.all(listB.map((medication) => this.normalizeMedication(medication)));
+    const matches = (a: string, b: string) => a === b || a.includes(b) || b.includes(a);
 
     const continued: string[] = [];
     const added: string[] = [];
     const removed: string[] = [];
     const possibleDuplicates: Array<{ a: string; b: string; reason: string }> = [];
 
-    // Simple string & prefix reconciliation logic
     for (let i = 0; i < listA.length; i++) {
-      const origA = listA[i];
-      const a = normA[i];
-      const matchInB = listB.find((_, idx) => normB[idx] === a || normB[idx].includes(a) || a.includes(normB[idx]));
-      if (matchInB) {
-        if (!continued.includes(origA)) continued.push(origA);
+      if (normalizedB.some((b) => matches(normalizedA[i], b))) {
+        if (!continued.includes(listA[i])) continued.push(listA[i]);
       } else {
-        removed.push(origA);
+        removed.push(listA[i]);
       }
     }
 
     for (let i = 0; i < listB.length; i++) {
-      const origB = listB[i];
-      const b = normB[i];
-      const matchInA = listA.find((_, idx) => normA[idx] === b || normA[idx].includes(b) || b.includes(normA[idx]));
-      if (!matchInA) {
-        added.push(origB);
+      if (!normalizedA.some((a) => matches(a, normalizedB[i]))) {
+        added.push(listB[i]);
       }
     }
 
-    // Check duplicate therapeutic class risks (e.g. NSAID + NSAID)
+    // Conservative cross-list medication-risk heuristics. These are warnings,
+    // not diagnoses or interaction verdicts, and are shown for clinician review.
     const nsaidTerms = ['ibuprofen', 'aspirin', 'naproxen', 'advil', 'aleve', 'celebrex', 'meloxicam'];
-    const nsaidsInA = listA.filter((m) => nsaidTerms.some((n) => m.toLowerCase().includes(n)));
-    const nsaidsInB = listB.filter((m) => nsaidTerms.some((n) => m.toLowerCase().includes(n)));
+    const anticoagulantTerms = ['warfarin', 'heparin', 'apixaban', 'rivaroxaban', 'dabigatran', 'clopidogrel'];
+    const containsAny = (name: string, terms: string[]) =>
+      terms.some((term) => name.toLowerCase().includes(term));
 
-    if (nsaidsInA.length > 0 && nsaidsInB.length > 0) {
-      for (const aName of nsaidsInA) {
-        for (const bName of nsaidsInB) {
-          if (aName.toLowerCase() !== bName.toLowerCase()) {
-            possibleDuplicates.push({
-              a: aName,
-              b: bName,
-              reason: 'Multiple NSAID agents detected. Risk of severe GI toxicity and renal impairment.',
-            });
-          }
+    for (const aName of listA) {
+      for (const bName of listB) {
+        if (aName.trim().toLowerCase() === bName.trim().toLowerCase()) continue;
+        const aNsaid = containsAny(aName, nsaidTerms);
+        const bNsaid = containsAny(bName, nsaidTerms);
+        const aAnticoagulant = containsAny(aName, anticoagulantTerms);
+        const bAnticoagulant = containsAny(bName, anticoagulantTerms);
+
+        if (aNsaid && bNsaid) {
+          possibleDuplicates.push({
+            a: aName,
+            b: bName,
+            reason: 'Multiple NSAID agents detected. Risk of severe GI toxicity and renal impairment.',
+          });
+        } else if ((aAnticoagulant && bNsaid) || (bAnticoagulant && aNsaid)) {
+          possibleDuplicates.push({
+            a: aName,
+            b: bName,
+            reason: 'Anticoagulant plus NSAID/antiplatelet exposure may increase bleeding risk. Confirm with a clinician or pharmacist.',
+          });
         }
       }
     }
@@ -157,12 +176,16 @@ export class CareService {
       summary = null;
     }
 
-    const patientName = summary?.patient?.name ?? 'Alex Morgan (Synthetic)';
-    const age = summary?.patient?.age ?? 46;
-    const gender = summary?.patient?.gender ?? 'male';
+    const patientName = summary?.patient?.name ?? '[patient context unavailable]';
+    const age = summary?.patient?.age ?? '[unknown age]';
+    const gender = summary?.patient?.gender ?? '[unknown gender]';
 
-    const conditions = summary?.active_conditions.map((c) => c.display) ?? ['Type 2 Diabetes Mellitus'];
-    const medications = summary?.active_medications.map((m) => m.name) ?? ['Metformin 500 MG'];
+    const conditions = summary
+      ? summary.active_conditions.map((c) => c.display)
+      : ['[patient context unavailable]'];
+    const medications = summary
+      ? summary.active_medications.map((m) => m.name)
+      : ['[patient context unavailable]'];
 
     const draftText =
       `SPECIALIST REFERRAL CONSULTATION REQUEST\n` +

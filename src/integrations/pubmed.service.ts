@@ -187,7 +187,7 @@ export class PubMedService {
   /** EFetch (single batched call) → abstracts + MeSH terms per PMID. */
   async getAbstracts(pmids: string[]): Promise<Map<string, { abstract: string | null; meshTerms: string[] }>> {
     if (!pmids || pmids.length === 0) return new Map();
-    const res = await this.http.getJson<never>({
+    const response = await this.http.getText({
       api: 'pubmed',
       url: this.url('efetch.fcgi', {
         db: 'pubmed',
@@ -196,34 +196,12 @@ export class PubMedService {
         retmode: 'xml',
       }),
       headers: { Accept: 'application/xml' },
-    }).catch(() => null);
-    void res;
-    return new Map();
+    });
+    return parseEfetchXml(response.data);
   }
 
-  /** EFetch raw XML and parse — the real implementation used by callers. */
+  /** Backward-compatible alias for callers that prefer the explicit XML name. */
   async getAbstractsXml(pmids: string[]): Promise<Map<string, { abstract: string | null; meshTerms: string[] }>> {
-    if (!pmids || pmids.length === 0) return new Map();
-    const url = this.url('efetch.fcgi', {
-      db: 'pubmed',
-      id: pmids.join(','),
-      rettype: 'abstract',
-      retmode: 'xml',
-    });
-    try {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': `vitalis-mcp/1.0 (hackathon; contact: ${env.CONTACT_EMAIL ?? 'unset'})`,
-          Accept: 'application/xml',
-        },
-      });
-      if (!response.ok) {
-        return new Map();
-      }
-      const xml = await response.text();
-      return parseEfetchXml(xml);
-    } catch {
-      return new Map();
-    }
+    return this.getAbstracts(pmids);
   }
 }

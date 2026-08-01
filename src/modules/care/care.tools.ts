@@ -13,6 +13,7 @@ import {
   z,
 } from '@nitrostack/core';
 import { CareService } from './care.service.js';
+import { UseClinicalGateway } from '../../gateway/clinical-gateway.decorator.js';
 
 @Controller('care')
 @Injectable({ deps: [CareService] })
@@ -24,7 +25,7 @@ export class CareTools {
     description:
       'Generate a standardized SBAR (Situation, Background, Assessment, Recommendation) or narrative clinical handoff summary from synthetic FHIR patient data.',
     inputSchema: z.object({
-      patient_id: z.string().min(1).describe('FHIR Patient Resource ID'),
+      patient_id: z.string().regex(/^[A-Za-z0-9.-]{1,64}$/).describe('FHIR Patient Resource ID'),
       format: z.enum(['sbar', 'narrative']).default('sbar').describe('Output format'),
     }),
     examples: {
@@ -38,6 +39,7 @@ export class CareTools {
   })
   @Cache({ ttl: 300, key: (input: any) => `care_handoff:${input.patient_id}:${input.format ?? 'sbar'}` })
   @RateLimit({ requests: 20, window: '1m' })
+  @UseClinicalGateway()
   async generateHandoff(input: any, ctx: ExecutionContext) {
     ctx.logger.info('care_generate_handoff', { patient_id: input.patient_id });
     const result = await this.careService.generateHandoff(input.patient_id, input.format ?? 'sbar');
@@ -81,6 +83,7 @@ export class CareTools {
   })
   @Widget('med-reconciliation')
   @RateLimit({ requests: 60, window: '1m' })
+  @UseClinicalGateway()
   async reconcileMedications(input: any, ctx: ExecutionContext) {
     ctx.logger.info('care_reconcile_medications', { count_a: input.list_a.length, count_b: input.list_b.length });
     const result = await this.careService.reconcileMedications(
@@ -106,7 +109,7 @@ export class CareTools {
     description:
       'Draft a specialist referral letter and consultation request context using FHIR patient data.',
     inputSchema: z.object({
-      patient_id: z.string().min(1).describe('FHIR Patient Resource ID'),
+      patient_id: z.string().regex(/^[A-Za-z0-9.-]{1,64}$/).describe('FHIR Patient Resource ID'),
       specialty: z.string().min(2).max(100).describe('Specialty name, e.g. "Endocrinology"'),
       reason: z.string().min(5).max(500).describe('Clinical reason for specialist referral'),
       urgency: z.enum(['routine', 'urgent']).default('routine').describe('Referral urgency'),
@@ -120,6 +123,7 @@ export class CareTools {
     },
   })
   @RateLimit({ requests: 60, window: '1m' })
+  @UseClinicalGateway()
   async draftReferral(input: any, ctx: ExecutionContext) {
     ctx.logger.info('care_draft_referral', { patient_id: input.patient_id, specialty: input.specialty });
     const result = await this.careService.draftReferral(
@@ -156,6 +160,7 @@ export class CareTools {
   })
   @Cache({ ttl: 43200, key: (input: any) => `guidelines:${String(input.condition).toLowerCase()}:${input.max_results ?? 5}` })
   @RateLimit({ requests: 10, window: '1m' })
+  @UseClinicalGateway()
   async findGuidelines(input: any, ctx: ExecutionContext) {
     ctx.logger.info('care_find_guidelines', { condition: input.condition });
     const result = await this.careService.findGuidelines(input.condition, input.max_results ?? 5);
@@ -191,6 +196,7 @@ export class CareTools {
   })
   @Cache({ ttl: 86400, key: (input: any) => `appt_prep:${input.visit_type}:${input.condition ?? ''}` })
   @RateLimit({ requests: 120, window: '1m' })
+  @UseClinicalGateway()
   async appointmentPrep(input: any, ctx: ExecutionContext) {
     ctx.logger.info('care_appointment_prep', { visit_type: input.visit_type });
     const result = this.careService.getAppointmentPrep(input.visit_type, input.condition);

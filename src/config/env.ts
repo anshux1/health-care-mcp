@@ -40,7 +40,7 @@ const envSchema = z.object({
   API_KEY_CLINICIAN: emptyToUndefined(z.string().min(8).optional()),
   API_KEY_READONLY: emptyToUndefined(z.string().min(8).optional()),
   API_KEY_ADMIN: emptyToUndefined(z.string().min(8).optional()),
-  VITALIS_ALLOW_ANONYMOUS_DEMO: boolFromString(true),
+  VITALIS_ALLOW_ANONYMOUS_DEMO: boolFromString(false),
   JWT_SECRET: emptyToUndefined(z.string().min(16).optional()),
 
   // Upstream APIs (§4.1 — all verified live)

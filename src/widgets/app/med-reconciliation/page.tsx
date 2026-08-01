@@ -4,7 +4,8 @@ import React from 'react';
 import { useWidgetSDK, useTheme } from '@nitrostack/widgets';
 
 export default function MedReconciliationWidget() {
-  const { data } = useWidgetSDK();
+  const { getToolOutput } = useWidgetSDK();
+  const data = getToolOutput<any>();
   const theme = useTheme();
   const isDark = theme === 'dark';
 

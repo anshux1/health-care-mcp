@@ -27,8 +27,20 @@ function base64UrlDecode(str: string): string {
   return Buffer.from(base64, 'base64').toString('utf-8');
 }
 
-export function signJwt(payload: Omit<JwtPayload, 'iat' | 'exp'>, expiresInSeconds: number = 3600): string {
-  const secret = env.JWT_SECRET ?? 'vitalis_default_production_jwt_secret_2026_key';
+function configuredSecret(override?: string): string {
+  const secret = override ?? env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET is required before signing or verifying JWTs.');
+  }
+  return secret;
+}
+
+export function signJwt(
+  payload: Omit<JwtPayload, 'iat' | 'exp'>,
+  expiresInSeconds: number = 3600,
+  secretOverride?: string,
+): string {
+  const secret = configuredSecret(secretOverride);
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
 
@@ -51,13 +63,15 @@ export function signJwt(payload: Omit<JwtPayload, 'iat' | 'exp'>, expiresInSecon
   return `${encodedHeader}.${encodedPayload}.${encodedSignature}`;
 }
 
-export function verifyJwt(token: string): JwtPayload | null {
+export function verifyJwt(token: string, secretOverride?: string): JwtPayload | null {
   try {
-    const secret = env.JWT_SECRET ?? 'vitalis_default_production_jwt_secret_2026_key';
+    const secret = configuredSecret(secretOverride);
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
     const [encodedHeader, encodedPayload, encodedSignature] = parts;
+    const header = JSON.parse(base64UrlDecode(encodedHeader)) as { alg?: string; typ?: string };
+    if (header.alg !== 'HS256' || header.typ !== 'JWT') return null;
 
     const expectedSignature = base64UrlEncode(
       crypto
@@ -65,19 +79,31 @@ export function verifyJwt(token: string): JwtPayload | null {
         .update(`${encodedHeader}.${encodedPayload}`)
         .digest(),
     );
-
-    if (encodedSignature !== expectedSignature) {
+    const expectedBytes = Buffer.from(expectedSignature);
+    const actualBytes = Buffer.from(encodedSignature);
+    if (
+      expectedBytes.length !== actualBytes.length ||
+      !crypto.timingSafeEqual(expectedBytes, actualBytes)
+    ) {
       return null;
     }
 
-    const payload: JwtPayload = JSON.parse(base64UrlDecode(encodedPayload));
-    const now = Math.floor(Date.now() / 1000);
-
-    if (payload.exp && now > payload.exp) {
-      return null; // Expired
+    const payload = JSON.parse(base64UrlDecode(encodedPayload)) as Partial<JwtPayload>;
+    if (
+      typeof payload.sub !== 'string' ||
+      payload.sub.length === 0 ||
+      !Array.isArray(payload.scopes) ||
+      payload.scopes.some((scope) => typeof scope !== 'string') ||
+      typeof payload.iat !== 'number' ||
+      typeof payload.exp !== 'number'
+    ) {
+      return null;
     }
 
-    return payload;
+    const now = Math.floor(Date.now() / 1000);
+    if (now >= payload.exp) return null;
+
+    return payload as JwtPayload;
   } catch {
     return null;
   }

@@ -14,6 +14,7 @@ import {
 } from '@nitrostack/core';
 import { DiagnosticsService } from './diagnostics.service.js';
 import { WhoIcdService } from '../../integrations/who-icd.service.js';
+import { UseClinicalGateway } from '../../gateway/clinical-gateway.decorator.js';
 
 @Controller('diagnostics')
 @Injectable({ deps: [DiagnosticsService, WhoIcdService] })
@@ -40,6 +41,7 @@ export class DiagnosticsTools {
   })
   @Cache({ ttl: 86400, key: (input: any) => `dx_lookup:${String(input.query).toLowerCase()}:${input.max_results}` })
   @RateLimit({ requests: 120, window: '1m' })
+  @UseClinicalGateway()
   async lookupCondition(input: any, ctx: ExecutionContext) {
     ctx.logger.info('dx_lookup_condition', { query: input.query });
     const result = await this.dxService.lookupCondition(input.query, input.max_results ?? 10);
@@ -72,6 +74,7 @@ export class DiagnosticsTools {
   })
   @Cache({ ttl: 86400, key: (input: any) => `dx_icd11:${String(input.query).toLowerCase()}:${input.max_results ?? 5}` })
   @RateLimit({ requests: 60, window: '1m' })
+  @UseClinicalGateway()
   async lookupIcd11(input: any, ctx: ExecutionContext) {
     ctx.logger.info('dx_lookup_icd11', { query: input.query });
     const result = await this.whoIcdService.searchIcd11(input.query, input.max_results ?? 5);
@@ -115,6 +118,7 @@ export class DiagnosticsTools {
   })
   @Widget('lab-result-card')
   @RateLimit({ requests: 120, window: '1m' })
+  @UseClinicalGateway()
   async interpretLabValue(input: any, ctx: ExecutionContext) {
     ctx.logger.info('dx_interpret_lab_value', { analyte: input.analyte, value: input.value });
     const result = this.dxService.interpretLabValue(input.analyte, input.value, input.unit);
@@ -153,6 +157,7 @@ export class DiagnosticsTools {
   })
   @Cache({ ttl: 86400, key: (input: any) => `dx_explain:${String(input.test_name).toLowerCase()}` })
   @RateLimit({ requests: 120, window: '1m' })
+  @UseClinicalGateway()
   async explainLabTest(input: any, ctx: ExecutionContext) {
     ctx.logger.info('dx_explain_lab_test', { test: input.test_name });
     const result = this.dxService.explainLabTest(input.test_name);
@@ -184,6 +189,7 @@ export class DiagnosticsTools {
   })
   @Cache({ ttl: 86400, key: (input: any) => `dx_symptom_codes:${String(input.symptom).toLowerCase()}` })
   @RateLimit({ requests: 120, window: '1m' })
+  @UseClinicalGateway()
   async symptomToCodes(input: any, ctx: ExecutionContext) {
     ctx.logger.info('dx_symptom_to_codes', { symptom: input.symptom });
     const result = await this.dxService.symptomToCodes(input.symptom);

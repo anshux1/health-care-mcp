@@ -25,7 +25,7 @@ Generic symptom-checker LLM applications typically bolt a static disclaimer onto
 
 ## 2. Capability & Module Architecture
 
-Vitalis exposes 25 clinical tools across 6 modules, plus core resources and prompts:
+Vitalis exposes 29 core clinical tools across 6 modules, plus 3 clearly-labeled stretch tools, core resources, and prompts:
 
 ### 🏥 Module 1: Triage (`triage`)
 - `triage_assess_symptoms`: Full triage assessment yielding urgency tier (`emergency`, `urgent`, `routine`, `self_care`), red-flag matches, candidate conditions, and guidance.
@@ -33,17 +33,17 @@ Vitalis exposes 25 clinical tools across 6 modules, plus core resources and prom
 - `triage_get_care_options`: Maps urgency tier to concrete clinical care pathways.
 
 ### 💊 Module 2: Drug Safety (`drugs`)
-- `drug_search`: Resolves free-text drug names to RxCUI identifiers, synonyms, and drug classes.
-- `drug_get_label_info`: Official FDA drug label sections (boxed warnings, contraindications, interactions, etc.).
-- `drug_check_interactions`: Pairwise drug interaction cross-scanning over official FDA drug labels with evidence excerpts.
-- `drug_get_adverse_events`: Top reported adverse reactions from FDA FAERS.
-- `drug_get_recalls`: FDA enforcement and recall actions.
+- `drugs_search`: Resolves free-text drug names to RxCUI identifiers, synonyms, and drug classes.
+- `drugs_get_label_info`: Official FDA drug label sections (boxed warnings, contraindications, interactions, etc.).
+- `drugs_check_interactions`: Pairwise drug interaction cross-scanning over official FDA drug labels with evidence excerpts.
+- `drugs_get_adverse_events`: Top reported adverse reactions from FDA FAERS.
+- `drugs_get_recalls`: FDA enforcement and recall actions.
 
 ### 🔬 Module 3: Diagnostics Support (`diagnostics`)
-- `dx_lookup_condition`: Condition name lookup to ICD-10-CM codes.
-- `dx_interpret_lab_value`: Rule-based interpretation of lab values against ~25 analyte reference ranges.
-- `dx_explain_lab_test`: Patient-friendly explanations of lab tests (grade 6 reading level).
-- `dx_symptom_to_codes`: Symptom text to candidate ICD-10-CM documentation codes.
+- `diagnostics_lookup_condition`: Condition name lookup to ICD-10-CM codes.
+- `diagnostics_interpret_lab_value`: Rule-based interpretation of lab values against ~25 analyte reference ranges.
+- `diagnostics_explain_lab_test`: Patient-friendly explanations of lab tests (grade 6 reading level).
+- `diagnostics_symptom_to_codes`: Symptom text to candidate ICD-10-CM documentation codes.
 
 ### 📚 Module 4: Medical Research (`research`)
 - `research_search_pubmed`: PubMed literature search with publication type filters.
@@ -128,7 +128,7 @@ Configure `.env` environment variables (see `.env.example`):
 API_KEY_CLINICIAN=vk_live_clinician_demo_key_01
 API_KEY_READONLY=vk_live_readonly_demo_key_02
 API_KEY_ADMIN=vk_live_admin_demo_key_03
-VITALIS_ALLOW_ANONYMOUS_DEMO=true
+VITALIS_ALLOW_ANONYMOUS_DEMO=false
 ```
 
 ### Running Locally

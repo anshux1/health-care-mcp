@@ -14,6 +14,7 @@ import {
   z,
 } from '@nitrostack/core';
 import { DrugsService } from './drugs.service.js';
+import { UseClinicalGateway } from '../../gateway/clinical-gateway.decorator.js';
 
 @Controller('drugs')
 @Injectable({ deps: [DrugsService] })
@@ -46,6 +47,7 @@ export class DrugsTools {
   })
   @Cache({ ttl: 86400, key: (input: any) => `drug_search:${String(input.name).toLowerCase()}:${input.fuzzy}` })
   @RateLimit({ requests: 60, window: '1m' })
+  @UseClinicalGateway()
   async search(input: any, ctx: ExecutionContext) {
     ctx.logger.info('drug_search', { name: input.name, fuzzy: input.fuzzy });
     const matches = await this.drugs.searchDrugs(input.name, input.fuzzy ?? false);
@@ -94,8 +96,13 @@ export class DrugsTools {
       },
     },
   })
-  @Cache({ ttl: 86400, key: (input: any) => `drug_label:${String(input.drug_name).toLowerCase()}` })
+  @Cache({
+    ttl: 86400,
+    key: (input: any) =>
+      `drug_label:${String(input.drug_name).toLowerCase()}:${(input.sections ?? []).join('|')}`,
+  })
   @RateLimit({ requests: 60, window: '1m' })
+  @UseClinicalGateway()
   async getLabelInfo(input: any, ctx: ExecutionContext) {
     ctx.logger.info('drug_get_label_info', { drug: input.drug_name });
     const result = await this.drugs.getLabelInfo(input.drug_name, input.sections);
@@ -145,6 +152,7 @@ export class DrugsTools {
       `ddi:${[...(input.drugs as string[])].map((d) => d.toLowerCase()).sort().join('|')}`,
   })
   @RateLimit({ requests: 10, window: '1m' })
+  @UseClinicalGateway()
   async checkInteractions(input: any, ctx: ExecutionContext) {
     ctx.logger.info('drug_check_interactions', { drugs: input.drugs });
     const result = await this.drugs.checkInteractions(input.drugs);
@@ -182,6 +190,7 @@ export class DrugsTools {
   })
   @Cache({ ttl: 43200, key: (input: any) => `drug_faers:${String(input.drug_name).toLowerCase()}:${input.limit}` })
   @RateLimit({ requests: 60, window: '1m' })
+  @UseClinicalGateway()
   async getAdverseEvents(input: any, ctx: ExecutionContext) {
     ctx.logger.info('drug_get_adverse_events', { drug: input.drug_name });
     const result = await this.drugs.getAdverseEvents(input.drug_name, input.limit ?? 10);
@@ -221,6 +230,7 @@ export class DrugsTools {
   })
   @Cache({ ttl: 43200, key: (input: any) => `drug_recalls:${String(input.drug_name).toLowerCase()}` })
   @RateLimit({ requests: 60, window: '1m' })
+  @UseClinicalGateway()
   async getRecalls(input: any, ctx: ExecutionContext) {
     ctx.logger.info('drug_get_recalls', { drug: input.drug_name });
     const result = await this.drugs.getRecalls(input.drug_name);

@@ -27,7 +27,8 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
 }
 
 export default function PatientSummaryWidget() {
-  const { data } = useWidgetSDK();
+  const { getToolOutput } = useWidgetSDK();
+  const data = getToolOutput<any>();
   const theme = useTheme();
   const isDark = theme === 'dark';
   const [activeTab, setActiveTab] = useState<'overview' | 'conditions' | 'meds' | 'vitals' | 'allergies' | 'immunizations' | 'timeline'>('overview');

@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { useWidgetSDK, useTheme } from '@nitrostack/widgets';
 
 export default function DrugSafetyReportWidget() {
-  const { data } = useWidgetSDK();
+  const { getToolOutput } = useWidgetSDK();
+  const data = getToolOutput<any>();
   const theme = useTheme();
   const isDark = theme === 'dark';
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);

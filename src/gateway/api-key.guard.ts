@@ -1,80 +1,116 @@
 /**
- * ApiKeyGuard — Authenticates incoming MCP requests via x-api-key header, Authorization Bearer JWT, or auth metadata (BUILD_PLAN.md §5.1 & §13-S1).
- * Populates context.auth = { subject, scopes }.
+ * ApiKeyGuard — authenticates MCP requests via API key metadata or Bearer JWT.
+ *
+ * The NitroStack tool execution context receives MCP `_meta` values, while some
+ * HTTP adapters also expose request headers. We support both forms and never
+ * keep credentials in source code. Configure identities through environment
+ * variables (API_KEY_CLINICIAN, API_KEY_READONLY, API_KEY_ADMIN).
  */
 import { Guard, ExecutionContext, Injectable } from '@nitrostack/core';
 import { env } from '../config/env.js';
 import { verifyJwt } from './jwt.utils.js';
+import { getRequestHeaders } from './request-context.js';
 
 export interface AuthContext {
   subject: string;
   scopes: string[];
 }
 
-const DEFAULT_KEYS: Record<string, { subject: string; scopes: string[] }> = {
-  vk_live_clinician_demo_key_01: {
+type CredentialDefinition = {
+  envKey: keyof typeof env;
+  subject: string;
+  scopes: string[];
+};
+
+const CREDENTIALS: CredentialDefinition[] = [
+  {
+    envKey: 'API_KEY_CLINICIAN',
     subject: 'clinician_demo',
-    scopes: ['triage:read', 'drugs:read', 'dx:read', 'research:read', 'fhir:read', 'care:read', 'care:write'],
+    scopes: [
+      'triage:read',
+      'drugs:read',
+      'dx:read',
+      'research:read',
+      'fhir:read',
+      'care:read',
+      'care:write',
+    ],
   },
-  vk_live_readonly_demo_key_02: {
+  {
+    envKey: 'API_KEY_READONLY',
     subject: 'readonly_demo',
     scopes: ['triage:read', 'drugs:read', 'dx:read', 'research:read', 'fhir:read'],
   },
-  vk_live_admin_demo_key_03: {
+  {
+    envKey: 'API_KEY_ADMIN',
     subject: 'admin_demo',
-    scopes: ['*'],
+    scopes: ['*', 'admin:audit'],
   },
-};
+];
+
+function getString(source: unknown, key: string): string | undefined {
+  if (!source || typeof source !== 'object') return undefined;
+  const value = (source as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value.trim() : undefined;
+}
+
+function extractCredential(context: ExecutionContext): string | undefined {
+  const contextAny = context as any;
+  const headers = contextAny.headers ?? contextAny.req?.headers ?? getRequestHeaders() ?? {};
+  const metadata = context.metadata ?? {};
+
+  const authorization =
+    getString(headers, 'authorization') ??
+    getString(headers, 'Authorization') ??
+    getString(metadata, 'authorization');
+
+  if (authorization?.toLowerCase().startsWith('bearer ')) {
+    return authorization.slice(7).trim();
+  }
+
+  return (
+    getString(headers, 'x-api-key') ??
+    getString(metadata, 'x-api-key') ??
+    getString(metadata, 'apiKey') ??
+    getString(metadata, 'api_key') ??
+    getString(contextAny, 'authKey')
+  );
+}
+
+function findConfiguredApiKey(key: string): AuthContext | undefined {
+  for (const definition of CREDENTIALS) {
+    const configured = env[definition.envKey];
+    if (configured && key === configured) {
+      return {
+        subject: definition.subject,
+        scopes: [...definition.scopes],
+      };
+    }
+  }
+  return undefined;
+}
 
 @Injectable()
 export class ApiKeyGuard implements Guard {
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const reqHeaders = (context as any).headers ?? (context as any).req?.headers ?? {};
-    
-    // 1. Check Authorization Bearer JWT token or x-jwt-token
-    const authHeader = reqHeaders['authorization'] ?? reqHeaders['Authorization'];
-    const jwtHeaderToken = reqHeaders['x-jwt-token'] ?? context.metadata?.['x-jwt-token'];
+    const credential = extractCredential(context);
+    let authInfo: AuthContext | undefined;
 
-    let bearerToken: string | undefined;
-    if (typeof authHeader === 'string' && authHeader.toLowerCase().startsWith('bearer ')) {
-      bearerToken = authHeader.substring(7).trim();
-    } else if (typeof jwtHeaderToken === 'string') {
-      bearerToken = jwtHeaderToken.trim();
-    }
-
-    let authInfo: { subject: string; scopes: string[] } | undefined;
-
-    if (bearerToken) {
-      const payload = verifyJwt(bearerToken);
-      if (payload) {
+    if (credential) {
+      // A Bearer credential is attempted as JWT first. If it is not a valid JWT,
+      // the same value may still be a configured API key for compatibility with
+      // clients that send credentials through Authorization.
+      const jwtPayload = verifyJwt(credential);
+      if (jwtPayload) {
         authInfo = {
-          subject: payload.sub,
-          scopes: payload.scopes,
+          subject: jwtPayload.sub,
+          scopes: [...jwtPayload.scopes],
         };
+      } else {
+        authInfo = findConfiguredApiKey(credential);
       }
     }
 
-    // 2. Check x-api-key header if JWT not present or invalid
-    if (!authInfo) {
-      const apiKey =
-        reqHeaders['x-api-key'] ??
-        (context as any).authKey ??
-        context.metadata?.['x-api-key'];
-
-      if (apiKey && typeof apiKey === 'string') {
-        if (apiKey === env.API_KEY_CLINICIAN) {
-          authInfo = DEFAULT_KEYS.vk_live_clinician_demo_key_01;
-        } else if (apiKey === env.API_KEY_READONLY) {
-          authInfo = DEFAULT_KEYS.vk_live_readonly_demo_key_02;
-        } else if (apiKey === env.API_KEY_ADMIN) {
-          authInfo = DEFAULT_KEYS.vk_live_admin_demo_key_03;
-        } else if (DEFAULT_KEYS[apiKey]) {
-          authInfo = DEFAULT_KEYS[apiKey];
-        }
-      }
-    }
-
-    // 3. Fallback to anonymous demo mode if enabled
     if (!authInfo && env.VITALIS_ALLOW_ANONYMOUS_DEMO) {
       authInfo = {
         subject: 'anonymous_demo',
@@ -83,10 +119,12 @@ export class ApiKeyGuard implements Guard {
     }
 
     if (!authInfo) {
-      throw new Error('AUTH_DENIED: Invalid or missing authentication credential (x-api-key or Bearer JWT required).');
+      throw new Error(
+        'AUTH_DENIED: Invalid or missing authentication credential. Provide an API key or Bearer token.',
+      );
     }
 
-    (context as any).auth = authInfo;
+    context.auth = authInfo as any;
     return true;
   }
 }

@@ -1,8 +1,9 @@
 /**
  * TrimPipe — Normalizes and trims all string inputs recursively (BUILD_PLAN.md §3.1).
  */
-import { PipeInterface, ArgumentMetadata, Injectable } from '@nitrostack/core';
+import { Pipe, PipeInterface, ArgumentMetadata, Injectable } from '@nitrostack/core';
 
+@Pipe()
 @Injectable()
 export class TrimPipe implements PipeInterface<unknown, unknown> {
   async transform(value: unknown, _metadata: ArgumentMetadata): Promise<unknown> {

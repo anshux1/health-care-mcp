@@ -21,7 +21,16 @@ export class ResearchService {
     yearsBack?: number,
   ) {
     const { count, pmids } = await this.pubmed.search(query, maxResults, publicationType, yearsBack);
-    const articles = await this.pubmed.getSummaries(pmids);
+    const summaries = await this.pubmed.getSummaries(pmids);
+    const articles = summaries.map((article) => ({
+      pmid: article.pmid,
+      title: article.title,
+      journal: article.journal,
+      pub_date: article.pubDate,
+      authors: article.authors,
+      publication_types: article.publicationTypes,
+      doi: article.doi,
+    }));
     return {
       total_count: count,
       articles,

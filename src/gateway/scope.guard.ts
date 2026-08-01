@@ -22,11 +22,17 @@ const TOOL_SCOPE_MAP: Record<string, string> = {
   drug_get_recalls: 'drugs:read',
   drugs_get_recalls: 'drugs:read',
 
-  // Diagnostics module
+  // Diagnostics module (public runtime names include the controller prefix)
   dx_lookup_condition: 'dx:read',
+  diagnostics_lookup_condition: 'dx:read',
+  dx_lookup_icd11: 'dx:read',
+  diagnostics_lookup_icd11: 'dx:read',
   dx_interpret_lab_value: 'dx:read',
+  diagnostics_interpret_lab_value: 'dx:read',
   dx_explain_lab_test: 'dx:read',
+  diagnostics_explain_lab_test: 'dx:read',
   dx_symptom_to_codes: 'dx:read',
+  diagnostics_symptom_to_codes: 'dx:read',
 
   // Research module
   research_search_pubmed: 'research:read',
@@ -43,6 +49,8 @@ const TOOL_SCOPE_MAP: Record<string, string> = {
   fhir_get_observations: 'fhir:read',
   fhir_get_encounters: 'fhir:read',
   fhir_get_patient_summary: 'fhir:read',
+  fhir_get_allergies: 'fhir:read',
+  fhir_get_immunizations: 'fhir:read',
 
   // Care Coordination module
   care_generate_handoff: 'care:read',
@@ -60,10 +68,6 @@ export class ScopeGuard implements Guard {
       throw new Error('AUTH_DENIED: Unauthenticated context.');
     }
 
-    if (auth.scopes.includes('*')) {
-      return true;
-    }
-
     const toolName = context.toolName;
     if (!toolName) {
       return true;
@@ -71,6 +75,10 @@ export class ScopeGuard implements Guard {
 
     const requiredScope = TOOL_SCOPE_MAP[toolName];
     if (!requiredScope) {
+      throw new Error(`SCOPE_DENIED: No authorization policy is defined for tool '${toolName}'.`);
+    }
+
+    if (auth.scopes.includes('*')) {
       return true;
     }
 

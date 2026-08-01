@@ -34,9 +34,15 @@ export interface ClinicalTrialSummary {
   url: string;
 }
 
-export interface ClinicalTrialDetails extends ClinicalTrialSummary {
+export interface ClinicalTrialDetails {
+  nct_id: string;
+  title: string;
+  status: string;
+  phase: string[];
   sponsor: string;
+  conditions: string[];
   interventions: Array<{ type?: string; name?: string }>;
+  start_date?: string;
   eligibility: {
     criteria?: string;
     sex?: string;
@@ -44,8 +50,9 @@ export interface ClinicalTrialDetails extends ClinicalTrialSummary {
     max_age?: string;
   };
   primary_outcomes: string[];
-  full_locations: Array<{ facility?: string; city?: string; country?: string }>;
+  locations: Array<{ facility?: string; city?: string; country?: string }>;
   contacts: Array<{ name?: string; role?: string; phone?: string; email?: string }>;
+  url: string;
 }
 
 @Injectable({ deps: [HttpClientService] })
@@ -178,13 +185,13 @@ export class ClinicalTrialsService {
     return {
       nct_id: id,
       title: ps.identificationModule?.briefTitle ?? '',
-      overall_status: ps.statusModule?.overallStatus ?? 'UNKNOWN',
-      phases: ps.designModule?.phases ?? [],
+      status: ps.statusModule?.overallStatus ?? 'UNKNOWN',
+      phase: ps.designModule?.phases ?? [],
       conditions: ps.conditionsModule?.conditions ?? [],
-      lead_sponsor: ps.sponsorCollaboratorsModule?.leadSponsor?.name,
       sponsor: ps.sponsorCollaboratorsModule?.leadSponsor?.name ?? 'Unspecified',
       start_date: ps.statusModule?.startDateStruct?.date,
-      locations: (ps.contactsLocationsModule?.locations ?? []).slice(0, 3).map((loc) => ({
+      locations: (ps.contactsLocationsModule?.locations ?? []).map((loc) => ({
+        facility: loc.facility,
         city: loc.city,
         country: loc.country,
       })),
@@ -202,11 +209,6 @@ export class ClinicalTrialsService {
       primary_outcomes: (ps.outcomesModule?.primaryOutcomes ?? [])
         .map((o) => o.measure ?? '')
         .filter(Boolean),
-      full_locations: (ps.contactsLocationsModule?.locations ?? []).map((l) => ({
-        facility: l.facility,
-        city: l.city,
-        country: l.country,
-      })),
       contacts: (ps.contactsLocationsModule?.centralContacts ?? []).map((c) => ({
         name: c.name,
         role: c.role,

@@ -10,13 +10,15 @@ import {
 } from '@nitrostack/core';
 import { AuditStore } from '../../gateway/audit.store.js';
 import { MetricsStore } from '../../gateway/metrics.store.js';
+import { ApiKeyGuard } from '../../gateway/api-key.guard.js';
 
 @Controller('core')
-@Injectable({ deps: [AuditStore, MetricsStore] })
+@Injectable({ deps: [AuditStore, MetricsStore, ApiKeyGuard] })
 export class CoreResources {
   constructor(
     private readonly auditStore: AuditStore,
     private readonly metricsStore: MetricsStore,
+    private readonly apiKeyGuard: ApiKeyGuard,
   ) {}
 
   @Resource({
@@ -75,9 +77,10 @@ All FHIR patient records are 100% synthetic (Synthea generator) and contain ZERO
     description: 'Last 50 structured audit log entries recorded by AuditLogInterceptor (Admin scope required).',
     mimeType: 'application/json',
   })
-  async getRecentAuditLogs(ctx: ExecutionContext) {
-    const auth = (ctx as any).auth;
-    if (!auth || (!auth.scopes.includes('admin:audit') && !auth.scopes.includes('*'))) {
+  async getRecentAuditLogs(_uri: string, ctx: ExecutionContext) {
+    await this.apiKeyGuard.canActivate(ctx);
+    const auth = ctx.auth;
+    if (!auth || (!auth.scopes?.includes('admin:audit') && !auth.scopes?.includes('*'))) {
       throw new Error('SCOPE_DENIED: Accessing vitalis://audit/recent requires scope admin:audit.');
     }
 

@@ -9,6 +9,7 @@ import { FhirModule } from './modules/fhir/fhir.module.js';
 import { CareModule } from './modules/care/care.module.js';
 import { CoreModule } from './modules/core/core.module.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
+import { HttpContextModule } from './gateway/http-context.module.js';
 
 /**
  * Vitalis — Clinical Intelligence MCP Server
@@ -29,6 +30,7 @@ import { IntegrationsModule } from './integrations/integrations.module.js';
   description: 'Vitalis — Clinical Intelligence MCP Server',
   imports: [
     ConfigModule.forRoot(),
+    HttpContextModule.forRoot(),
     IntegrationsModule,
     TriageModule,
     DrugsModule,

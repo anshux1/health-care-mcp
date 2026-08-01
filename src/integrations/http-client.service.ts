@@ -14,6 +14,7 @@
  */
 import { Injectable } from '@nitrostack/core';
 import { env } from '../config/env.js';
+import { recordExternalCall } from '../gateway/request-context.js';
 
 export interface HttpRequestOptions {
   /** Short upstream name for logs/audit, e.g. 'openfda'. */
@@ -24,6 +25,8 @@ export interface HttpRequestOptions {
   headers?: Record<string, string>;
   /** Per-attempt timeout in ms. Default 8000. */
   timeoutMs?: number;
+  /** Overall request deadline in ms. Default 20000. */
+  deadlineMs?: number;
   /** Retries after the first attempt. Default 2. */
   maxRetries?: number;
   /** Concurrency key override (defaults to URL hostname). */
@@ -107,18 +110,23 @@ type SleepFn = (ms: number) => Promise<void>;
 @Injectable({ deps: [] })
 export class HttpClientService {
   private static readonly semaphores = new Map<string, Semaphore>();
-  private readonly fetchImpl: FetchImpl;
-  private readonly sleep: SleepFn;
+  private readonly customFetch?: FetchImpl;
+  private readonly customSleep?: SleepFn;
 
-  constructor(fetchImpl?: FetchImpl, sleep?: SleepFn) {
-    this.fetchImpl =
-      typeof fetchImpl === 'function' && fetchImpl !== (Object as unknown)
-        ? fetchImpl
-        : ((input, init) => globalThis.fetch(input, init));
-    this.sleep =
-      typeof sleep === 'function' && sleep !== (Object as unknown)
-        ? sleep
-        : ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+  constructor(arg1?: any, arg2?: any) {
+    if (typeof arg1 === 'function' && arg1 !== (Object as unknown)) {
+      this.customFetch = arg1;
+    }
+    if (typeof arg2 === 'function' && arg2 !== (Object as unknown)) {
+      this.customSleep = arg2;
+    }
+  }
+
+  private async sleep(ms: number): Promise<void> {
+    if (this.customSleep) {
+      return this.customSleep(ms);
+    }
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /** GET and parse JSON. Throws UpstreamError on exhaustion or 4xx. */
@@ -153,6 +161,7 @@ export class HttpClientService {
   ): Promise<HttpResponse<T>> {
     const release = await this.acquireSemaphore(opts);
     const startedAt = Date.now();
+    const deadlineAt = startedAt + (opts.deadlineMs ?? 20_000);
     const maxAttempts = 1 + (opts.maxRetries ?? 2);
     let attempts = 0;
 
@@ -161,11 +170,33 @@ export class HttpClientService {
 
       for (attempts = 1; attempts <= maxAttempts; attempts++) {
         try {
-          const response = await this.fetchWithTimeout(opts);
+          const remainingMs = deadlineAt - Date.now();
+          if (remainingMs <= 0) {
+            throw new UpstreamError(
+              `${opts.api} request exceeded its overall deadline`,
+              opts.api,
+              'UPSTREAM_TIMEOUT',
+              undefined,
+              attempts,
+            );
+          }
+          const response = await this.fetchWithTimeout(
+            opts,
+            Math.min(opts.timeoutMs ?? 8_000, remainingMs),
+          );
 
           if (!response || typeof response.status !== 'number') {
-            throw new Error(`fetch returned invalid response object`);
+            const respType = response ? typeof response : 'null/undefined';
+            const keys = response ? Object.keys(response) : [];
+            throw new Error(`fetch returned invalid response object (type: ${respType}, keys: ${keys.join(',')})`);
           }
+
+          recordExternalCall({
+            api: opts.api,
+            path: this.sanitizeUrl(opts.url),
+            status: response.status,
+            latency_ms: Date.now() - startedAt,
+          });
 
           if (response.status === 429 || response.status >= 500) {
             lastError = new UpstreamError(
@@ -176,7 +207,9 @@ export class HttpClientService {
               attempts,
             );
             if (attempts < maxAttempts) {
-              await this.sleep(this.retryDelayMs(attempts, response));
+              const delay = Math.min(this.retryDelayMs(attempts, response), deadlineAt - Date.now());
+              if (delay <= 0) throw lastError;
+              await this.sleep(delay);
               continue;
             }
             throw lastError;
@@ -220,7 +253,9 @@ export class HttpClientService {
             attempts,
           );
           if (attempts < maxAttempts) {
-            await this.sleep(this.retryDelayMs(attempts));
+            const delay = Math.min(this.retryDelayMs(attempts), deadlineAt - Date.now());
+            if (delay <= 0) throw lastError;
+            await this.sleep(delay);
             continue;
           }
           throw lastError;
@@ -236,12 +271,12 @@ export class HttpClientService {
     }
   }
 
-  private async fetchWithTimeout(opts: HttpRequestOptions): Promise<Response> {
+  private async fetchWithTimeout(opts: HttpRequestOptions, timeoutMs: number): Promise<Response> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 8_000);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const fetchFn = typeof this.fetchImpl === 'function' ? this.fetchImpl : globalThis.fetch;
-      return await fetchFn(opts.url, {
+      const fn = this.customFetch ?? globalThis.fetch;
+      return await fn(opts.url, {
         method: 'GET',
         signal: controller.signal,
         headers: {
