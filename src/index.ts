@@ -24,7 +24,9 @@ async function bootstrap() {
       `configured API keys: ${[env.API_KEY_CLINICIAN, env.API_KEY_READONLY, env.API_KEY_ADMIN].filter(Boolean).length}; ` +
       `JWT: ${env.JWT_SECRET ? 'enabled' : 'disabled'}`,
   );
-  console.error(`Vitalis anonymous demo mode: ${env.VITALIS_ALLOW_ANONYMOUS_DEMO ? 'active (read-only)' : 'inactive'}`);
+  console.error(
+    `Vitalis anonymous demo mode: ${env.VITALIS_ALLOW_ANONYMOUS_DEMO ? 'active (full clinical scopes, synthetic data only)' : 'inactive'}`,
+  );
 
   if (process.env.VITALIS_SAFETY_LAYER === 'off') {
     console.error(

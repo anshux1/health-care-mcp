@@ -133,9 +133,20 @@ export class ApiKeyGuard implements Guard {
     }
 
     if (!authInfo && env.VITALIS_ALLOW_ANONYMOUS_DEMO) {
+      // Demo mode (local demos with synthetic data only): full clinical scopes
+      // so every tool works without a credential. Never grants admin/wildcard.
+      // Keep disabled in any shared or production deployment.
       authInfo = {
         subject: 'anonymous_demo',
-        scopes: ['triage:read', 'drugs:read', 'dx:read', 'research:read', 'fhir:read', 'care:read'],
+        scopes: [
+          'triage:read',
+          'drugs:read',
+          'dx:read',
+          'research:read',
+          'fhir:read',
+          'care:read',
+          'care:write',
+        ],
         isAdmin: false,
         authMethod: 'anonymous',
       };

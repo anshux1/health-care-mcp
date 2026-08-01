@@ -9,6 +9,7 @@
     "build": "nitrostack-cli build && node -e \"import('fs').then(fs => fs.cpSync('src/data', 'dist/data', {recursive: true, force: true}))\"",
     "start": "npm run build && nitrostack-cli start",
     "start:prod": "nitrostack-cli start",
+    "start:http": "MCP_TRANSPORT_TYPE=http PORT=3100 node dist/index.js",
     "upgrade": "nitrostack-cli upgrade",
     "install:all": "nitrostack-cli install",
     "test": "vitest run",
