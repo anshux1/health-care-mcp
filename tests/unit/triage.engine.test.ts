@@ -13,6 +13,7 @@ describe('TriageService Engine Tests (Safety Critical)', () => {
     });
     expect(result.urgency_tier).toBe('emergency');
     expect(result.red_flags.length).toBeGreaterThan(0);
+    expect(result.possible_conditions.some((condition) => condition.name === 'Acute Coronary Syndrome')).toBe(true);
     expect(result.guidance).toContain('Immediate clinical evaluation');
   });
 

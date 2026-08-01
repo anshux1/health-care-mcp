@@ -120,9 +120,9 @@ export class DrugsService {
       if (seen.has(rxcui) || matches.length >= 5) return;
       seen.add(rxcui);
       const [properties, drugs, classes] = await Promise.all([
-        this.rxnorm.getProperties(rxcui),
-        this.rxnorm.getDrugs(name),
-        this.rxnorm.getClasses(rxcui),
+        this.rxnorm.getProperties(rxcui).catch(() => null),
+        this.rxnorm.getDrugs(name).catch(() => []),
+        this.rxnorm.getClasses(rxcui).catch(() => []),
       ]);
       const synonyms = [
         ...new Set(
@@ -188,7 +188,7 @@ export class DrugsService {
       found: true as const,
       drug: label.openfda?.generic_name?.[0] ?? drugName,
       brand_names: label.openfda?.brand_name ?? [],
-      rxcui: label.openfda?.rxcui ?? [],
+      rxcui: label.openfda?.rxcui?.[0] ?? null,
       sections: out,
       source: 'openfda' as const,
       label_revision_date: label.effective_time ?? null,

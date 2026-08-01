@@ -91,8 +91,22 @@ export interface FhirAggregatedSummary {
 export class FhirService {
   constructor(private readonly http: HttpClientService) {}
 
+  private validatePatientPath(path: string): void {
+    let patientId: string | null = null;
+    const directMatch = /^\/Patient\/([^/?]+)/.exec(path);
+    if (directMatch) patientId = decodeURIComponent(directMatch[1]);
+    else {
+      patientId = new URL(path, 'https://fhir.local').searchParams.get('patient');
+    }
+
+    if (patientId !== null && !/^[A-Za-z0-9.-]{1,64}$/.test(patientId)) {
+      throw new Error('VALIDATION_ERROR: FHIR patient_id must contain only letters, numbers, dots, or hyphens.');
+    }
+  }
+
   /** Failover HTTP wrapper for FHIR endpoint calls. */
   private async getFhir<T>(path: string): Promise<{ data: T; serverUsed: string }> {
+    this.validatePatientPath(path);
     const primaryUrl = `${env.FHIR_BASE_URL}${path.startsWith('/') ? '' : '/'}${path}`;
     try {
       const res = await this.http.getJson<T>({
@@ -376,7 +390,8 @@ export class FhirService {
   /** Get patient's allergy intolerances. */
   async getAllergies(
     patientId: string,
-  ): Promise<{ allergies: FhirAllergy[]; server_used: string }> {
+  ): Promise<{ allergies: FhirAllergy[]; server_used: string; upstream_error?: boolean }> {
+    this.validatePatientPath(`/AllergyIntolerance?patient=${encodeURIComponent(patientId)}`);
     const qp = new URLSearchParams({ patient: patientId });
 
     try {
@@ -400,14 +415,15 @@ export class FhirService {
 
       return { allergies, server_used: serverUsed };
     } catch {
-      return { allergies: [], server_used: env.FHIR_BASE_URL };
+      return { allergies: [], server_used: 'unavailable', upstream_error: true };
     }
   }
 
   /** Get patient's immunization history. */
   async getImmunizations(
     patientId: string,
-  ): Promise<{ immunizations: FhirImmunization[]; server_used: string }> {
+  ): Promise<{ immunizations: FhirImmunization[]; server_used: string; upstream_error?: boolean }> {
+    this.validatePatientPath(`/Immunization?patient=${encodeURIComponent(patientId)}`);
     const qp = new URLSearchParams({ patient: patientId });
 
     try {
@@ -428,7 +444,7 @@ export class FhirService {
 
       return { immunizations, server_used: serverUsed };
     } catch {
-      return { immunizations: [], server_used: env.FHIR_BASE_URL };
+      return { immunizations: [], server_used: 'unavailable', upstream_error: true };
     }
   }
 
@@ -448,8 +464,6 @@ export class FhirService {
     ]);
 
     const sectionsFailed: string[] = [];
-    let serverUsed = env.FHIR_BASE_URL;
-
     let patient: FhirPatientSummary = {
       fhir_id: patientId,
       name: 'Unknown Patient',
@@ -459,7 +473,6 @@ export class FhirService {
 
     if (patRes.status === 'fulfilled') {
       patient = patRes.value.patient;
-      serverUsed = patRes.value.server_used;
     } else {
       sectionsFailed.push('patient');
     }
@@ -478,6 +491,22 @@ export class FhirService {
 
     const allergies = algRes.status === 'fulfilled' ? algRes.value.allergies : [];
     const immunizations = immRes.status === 'fulfilled' ? immRes.value.immunizations : [];
+    if (algRes.status === 'rejected' || (algRes.status === 'fulfilled' && algRes.value.upstream_error)) {
+      sectionsFailed.push('allergies');
+    }
+    if (immRes.status === 'rejected' || (immRes.status === 'fulfilled' && immRes.value.upstream_error)) {
+      sectionsFailed.push('immunizations');
+    }
+
+    const serverCandidates: string[] = [];
+    for (const result of [patRes, condRes, medRes, obsRes, encRes, algRes, immRes]) {
+      if (result.status === 'fulfilled' && typeof result.value.server_used === 'string') {
+        if (result.value.server_used !== 'unavailable') serverCandidates.push(result.value.server_used);
+      }
+    }
+    const serverUsed = serverCandidates.includes(env.FHIR_BASE_URL_FALLBACK)
+      ? env.FHIR_BASE_URL_FALLBACK
+      : serverCandidates[0] ?? 'unavailable';
 
     return {
       patient,

@@ -5,8 +5,36 @@
 import { Injectable } from '@nitrostack/core';
 import { loadDataJson } from '../../data/load-json.js';
 
-const redFlagData = loadDataJson('red-flag-rules.json');
-const symptomMapData = loadDataJson('symptom-condition-map.json');
+const redFlagData = loadDataJson('red-flag-rules.json') as {
+  rules?: unknown;
+  emergency_terms?: unknown;
+};
+const symptomMapData = loadDataJson('symptom-condition-map.json') as { mappings?: unknown };
+
+function validateTriageData(): void {
+  if (!Array.isArray(redFlagData.rules) || redFlagData.rules.length < 30) {
+    throw new Error('[TriageService] Fatal: red-flag-rules.json must contain at least 30 rules.');
+  }
+  if (!Array.isArray(redFlagData.emergency_terms) || redFlagData.emergency_terms.length === 0) {
+    throw new Error('[TriageService] Fatal: red-flag-rules.json must contain emergency terms.');
+  }
+  if (!Array.isArray(symptomMapData.mappings)) {
+    throw new Error('[TriageService] Fatal: symptom-condition-map.json must contain mappings.');
+  }
+  for (const rule of redFlagData.rules as Array<Record<string, unknown>>) {
+    if (
+      typeof rule.id !== 'string' ||
+      typeof rule.name !== 'string' ||
+      !Array.isArray(rule.keywords) ||
+      typeof rule.urgency_tier !== 'string' ||
+      typeof rule.reason !== 'string'
+    ) {
+      throw new Error('[TriageService] Fatal: invalid rule shape in red-flag-rules.json.');
+    }
+  }
+}
+
+validateTriageData();
 
 export type UrgencyTier = 'emergency' | 'urgent' | 'routine' | 'self_care';
 
@@ -14,6 +42,8 @@ export interface RedFlagMatch {
   flag: string;
   reason: string;
   urgency_tier: UrgencyTier;
+  condition_name?: string;
+  icd10?: string;
 }
 
 export interface PossibleCondition {
@@ -32,12 +62,12 @@ export class TriageService {
     reason: string;
     icd10?: string;
     condition_name?: string;
-  }> = redFlagData.rules;
+  }> = redFlagData.rules as any;
 
   private readonly symptomMap: Array<{
     symptom: string;
     conditions: PossibleCondition[];
-  }> = symptomMapData.mappings;
+  }> = symptomMapData.mappings as any;
 
   /** Fast red flag check for emergency screening. */
   checkRedFlags(symptoms: string[]): {
@@ -116,6 +146,8 @@ export class TriageService {
             flag: rule.name,
             reason: rule.reason,
             urgency_tier: rule.urgency_tier,
+            condition_name: rule.condition_name,
+            icd10: rule.icd10,
           });
         }
       }
@@ -129,6 +161,7 @@ export class TriageService {
           flag: 'Infant Fever (< 3 Months)',
           reason: 'High risk of serious occult bacterial infection in infants under 3 months.',
           urgency_tier: 'emergency',
+          condition_name: 'Serious Infant Infection',
         });
       }
 
@@ -160,6 +193,19 @@ export class TriageService {
               possibleConditions.push(c);
             }
           }
+        }
+      }
+
+      // Add candidates from matched rules as well as the symptom map. This
+      // keeps rule-driven emergency findings visible even when a symptom has
+      // no separate map entry.
+      for (const match of matchedFlags) {
+        if (match.condition_name && !possibleConditions.some((condition) => condition.name === match.condition_name)) {
+          possibleConditions.push({
+            name: match.condition_name,
+            likelihood_band: 'possible',
+            icd10: match.icd10,
+          });
         }
       }
 

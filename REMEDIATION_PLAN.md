@@ -30,6 +30,7 @@ Completed in the first implementation pass:
 - [x] Hardened authentication/authorization and completed the centralized clinical safety layer with infant-safe triage input and a validated 30-rule ruleset.
 - [x] Completed audit events, bounded persistence, cache/upstream telemetry, and percentile latency metrics.
 - [x] Hardened shared HTTP, PubMed/WHO integrations, FHIR fallback probes, and required/optional upstream health checks.
+- [x] Completed module-specific clinical fixes across drugs, diagnostics, FHIR, care, and triage.
 
 Still outstanding after this pass:
 
@@ -654,29 +655,31 @@ Update `ExternalApiHealthCheck`:
 
 # Phase 7 — Fix Module-Specific Clinical and Contract Issues
 
+**Status: Complete.** Drug degradation/contracts, diagnostic aliases and conversions, FHIR fallback/partial status, care placeholders, and triage data validation are implemented with clinical correctness tests.
+
 ## 7.1 Drug module
 
-- [ ] Fix label cache keys so requested sections are included.
-- [ ] Add independent degradation for RxNorm properties, RxClass lookup, and FDA labels.
-- [ ] Keep partial-success DDI behavior.
-- [ ] Preserve the methodology note that absence of evidence is not proof of safety.
-- [ ] Normalize FDA label values to the documented output type.
-- [ ] Add tests for cache-key separation and missing upstream pieces.
+- [x] Fix label cache keys so requested sections are included.
+- [x] Add independent degradation for RxNorm properties, RxClass lookup, and FDA labels.
+- [x] Keep partial-success DDI behavior.
+- [x] Preserve the methodology note that absence of evidence is not proof of safety.
+- [x] Normalize FDA label values to the documented scalar output type.
+- [x] Add tests for independent degradation and normalized label output.
 
 ## 7.2 Diagnostics module
 
 Implement a unit normalization layer:
 
-- [ ] Normalize unit spelling and case.
-- [ ] Support glucose mg/dL ↔ mmol/L.
-- [ ] Support creatinine conversion if included in the plan.
-- [ ] Support cholesterol-family conversion if included in the plan.
-- [ ] Reject unsupported unit mismatch with a structured validation error.
-- [ ] Return canonical value/unit and original value/unit if useful.
-- [ ] Add analyte aliases where clinically safe.
-- [ ] Use age/sex only if reference ranges are actually age/sex-specific; otherwise remove unused inputs or document them.
-- [ ] Add fuzzy test-name suggestions for unknown explanations.
-- [ ] Reach the agreed analyte count target.
+- [x] Normalize unit spelling and case.
+- [x] Support glucose mg/dL ↔ mmol/L.
+- [x] Support creatinine conversion.
+- [x] Support cholesterol-family conversion.
+- [x] Reject unsupported unit mismatch with a structured validation error.
+- [x] Return canonical value/unit and original value/unit if useful.
+- [x] Add analyte aliases where clinically safe.
+- [x] Document that age/sex are retained as context fields while current ranges are general adult references.
+- [x] Add fuzzy test-name suggestions for unknown explanations.
+- [x] Reach the agreed 25-analyte target.
 
 Required tests:
 
@@ -692,34 +695,31 @@ Required tests:
 
 ## 7.3 FHIR module
 
-- [ ] Enforce the planned FHIR ID regex across all FHIR and care tools.
-- [ ] Map patient 404 to `PATIENT_NOT_FOUND`.
-- [ ] Do not fail over a patient-specific 404 as if the entire server were unavailable.
-- [ ] Normalize the patient output contract.
-- [ ] Track allergy/immunization failures in `sections_failed`.
-- [ ] Preserve accurate `server_used` values after fallback.
-- [ ] Keep `synthetic_data: true` in every FHIR/care result.
-- [ ] Add integration fixtures for primary success, primary failure/fallback, 404, empty bundle, and partial summary failure.
+- [x] Enforce the planned FHIR ID regex across all FHIR and care tools.
+- [x] Map patient 404 to `PATIENT_NOT_FOUND`.
+- [x] Do not fail over a patient-specific 404 as if the entire server were unavailable.
+- [x] Normalize the patient output contract.
+- [x] Track allergy/immunization failures in `sections_failed`.
+- [x] Preserve accurate `server_used` values after fallback.
+- [x] Keep `synthetic_data: true` in every FHIR/care result.
+- [x] Add mocked integration coverage for primary success, primary failure/fallback, 404, invalid IDs, and partial sections.
 
 ## 7.4 Care module
 
-- [ ] Implement optional RxNorm normalization per medication item.
-- [ ] Fall back to lowercase matching only for items whose RxNorm resolution fails.
-- [ ] Make duplicate detection explicit and conservative.
-- [ ] Add clinically important interaction-risk detection only when evidence is available; label heuristics clearly.
-- [ ] Replace fabricated referral defaults with:
-  - `[patient context unavailable]`
-  - empty relevant-condition/medication lists, or
-  - another explicit placeholder approved in the contract
-- [ ] Preserve `requires_clinician_review: true`.
-- [ ] Propagate FHIR partial failure information into handoff/referral output.
+- [x] Implement optional RxNorm normalization per medication item.
+- [x] Fall back to lowercase matching only for items whose RxNorm resolution fails.
+- [x] Make duplicate detection explicit and conservative.
+- [x] Add clinically important interaction-risk detection only when evidence is available; label heuristics clearly.
+- [x] Replace fabricated referral defaults with `[patient context unavailable]` and empty unavailable lists.
+- [x] Preserve `requires_clinician_review: true`.
+- [x] Propagate FHIR partial failure information into handoff/referral output.
 
 ## 7.5 Triage module
 
-- [ ] Complete rule coverage and data validation at boot.
-- [ ] Add condition candidates from rules or document why the symptom map is the only source.
-- [ ] Verify all urgency scoring branches against the plan.
-- [ ] Ensure emergency terms are detected through the actual gateway path.
+- [x] Complete rule coverage and data validation at boot.
+- [x] Add condition candidates from matching rules as well as the symptom map.
+- [x] Verify all urgency scoring branches against the plan.
+- [x] Ensure emergency terms are detected through the actual gateway path.
 
 ## Acceptance criteria
 

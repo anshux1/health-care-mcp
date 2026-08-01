@@ -35,9 +35,17 @@ export class CareService {
       summary = null;
     }
 
-    const patientName = summary?.patient?.name ?? 'Unknown Patient';
-    const age = summary?.patient?.age ?? 'Unknown';
-    const gender = summary?.patient?.gender ?? 'Unknown';
+    const sectionsFailed = summary?.sections_failed ?? [
+      'patient',
+      'conditions',
+      'medications',
+      'vitals',
+      'encounters',
+    ];
+    const patientContextAvailable = Boolean(summary && !sectionsFailed.includes('patient'));
+    const patientName = patientContextAvailable ? summary?.patient?.name ?? '[patient context unavailable]' : '[patient context unavailable]';
+    const age = patientContextAvailable ? summary?.patient?.age ?? '[patient context unavailable]' : '[patient context unavailable]';
+    const gender = patientContextAvailable ? summary?.patient?.gender ?? '[patient context unavailable]' : '[patient context unavailable]';
 
     const conditions = summary?.active_conditions.map((c) => c.display).join(', ') || '[No active conditions recorded]';
     const medications = summary?.active_medications.map((m) => m.name).join(', ') || '[No active medications recorded]';
@@ -62,6 +70,8 @@ export class CareService {
         narrative: `${situation} ${background} ${assessment} ${recommendation}`,
         source_data_window: 'FHIR R4 Active Summary',
         synthetic_data: true,
+        sections_failed: sectionsFailed,
+        server_used: summary?.server_used ?? 'unavailable',
       };
     }
 
@@ -75,6 +85,8 @@ export class CareService {
       },
       source_data_window: 'FHIR R4 Active Summary',
       synthetic_data: true,
+      sections_failed: sectionsFailed,
+      server_used: summary?.server_used ?? 'unavailable',
     };
   }
 
@@ -106,6 +118,13 @@ export class CareService {
     const added: string[] = [];
     const removed: string[] = [];
     const possibleDuplicates: Array<{ a: string; b: string; reason: string }> = [];
+    const duplicateKeys = new Set<string>();
+    const addDuplicate = (a: string, b: string, reason: string) => {
+      const key = [a.trim().toLowerCase(), b.trim().toLowerCase()].sort().join('|');
+      if (duplicateKeys.has(key)) return;
+      duplicateKeys.add(key);
+      possibleDuplicates.push({ a, b, reason });
+    };
 
     for (let i = 0; i < listA.length; i++) {
       if (normalizedB.some((b) => matches(normalizedA[i], b))) {
@@ -137,17 +156,17 @@ export class CareService {
         const bAnticoagulant = containsAny(bName, anticoagulantTerms);
 
         if (aNsaid && bNsaid) {
-          possibleDuplicates.push({
-            a: aName,
-            b: bName,
-            reason: 'Multiple NSAID agents detected. Risk of severe GI toxicity and renal impairment.',
-          });
+          addDuplicate(
+            aName,
+            bName,
+            'Multiple NSAID agents detected. Risk of severe GI toxicity and renal impairment.',
+          );
         } else if ((aAnticoagulant && bNsaid) || (bAnticoagulant && aNsaid)) {
-          possibleDuplicates.push({
-            a: aName,
-            b: bName,
-            reason: 'Anticoagulant plus NSAID/antiplatelet exposure may increase bleeding risk. Confirm with a clinician or pharmacist.',
-          });
+          addDuplicate(
+            aName,
+            bName,
+            'Anticoagulant plus NSAID/antiplatelet exposure may increase bleeding risk. Confirm with a clinician or pharmacist.',
+          );
         }
       }
     }
@@ -158,6 +177,8 @@ export class CareService {
       added,
       removed,
       possible_duplicates: possibleDuplicates,
+      duplicate_detection_note:
+        'Duplicate and interaction-risk warnings are conservative heuristics for clinician review, not definitive interaction findings.',
       discrepancy_count: added.length + removed.length + possibleDuplicates.length,
     };
   }
@@ -176,16 +197,16 @@ export class CareService {
       summary = null;
     }
 
-    const patientName = summary?.patient?.name ?? '[patient context unavailable]';
-    const age = summary?.patient?.age ?? '[unknown age]';
-    const gender = summary?.patient?.gender ?? '[unknown gender]';
+    const sectionsFailed = summary?.sections_failed ?? ['patient'];
+    const patientContextAvailable = Boolean(summary && !sectionsFailed.includes('patient'));
+    const patientName = patientContextAvailable ? summary?.patient?.name ?? '[patient context unavailable]' : '[patient context unavailable]';
+    const age = patientContextAvailable ? summary?.patient?.age ?? '[patient context unavailable]' : '[patient context unavailable]';
+    const gender = patientContextAvailable ? summary?.patient?.gender ?? '[patient context unavailable]' : '[patient context unavailable]';
 
-    const conditions = summary
-      ? summary.active_conditions.map((c) => c.display)
-      : ['[patient context unavailable]'];
-    const medications = summary
-      ? summary.active_medications.map((m) => m.name)
-      : ['[patient context unavailable]'];
+    const conditions = summary?.active_conditions.map((c) => c.display) ?? [];
+    const medications = summary?.active_medications.map((m) => m.name) ?? [];
+    const conditionsText = conditions.length ? conditions.map((c) => `• ${c}`).join('\n') : '[patient context unavailable]';
+    const medicationsText = medications.length ? medications.map((m) => `• ${m}`).join('\n') : '[patient context unavailable]';
 
     const draftText =
       `SPECIALIST REFERRAL CONSULTATION REQUEST\n` +
@@ -195,8 +216,8 @@ export class CareService {
       `Urgency: ${urgency.toUpperCase()}\n\n` +
       `RE: ${patientName} (Age: ${age}, Gender: ${gender})\n\n` +
       `REASON FOR REFERRAL:\n${reason}\n\n` +
-      `RELEVANT ACTIVE CONDITIONS:\n${conditions.map((c) => `• ${c}`).join('\n')}\n\n` +
-      `CURRENT ACTIVE MEDICATIONS:\n${medications.map((m) => `• ${m}`).join('\n')}\n\n` +
+      `RELEVANT ACTIVE CONDITIONS:\n${conditionsText}\n\n` +
+      `CURRENT ACTIVE MEDICATIONS:\n${medicationsText}\n\n` +
       `CLINICIAN SIGN-OFF REQUIRED:\nThis draft referral was generated by Vitalis Care Coordination. A licensed clinician must review and sign prior to transmission.`;
 
     return {
@@ -210,6 +231,8 @@ export class CareService {
         draft_text: draftText,
       },
       requires_clinician_review: true,
+      sections_failed: sectionsFailed,
+      server_used: summary?.server_used ?? 'unavailable',
     };
   }
 

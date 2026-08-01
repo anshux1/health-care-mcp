@@ -43,4 +43,45 @@ describe('CareService medication reconciliation', () => {
     expect(result.added).toEqual([]);
     expect(result.removed).toEqual([]);
   });
+
+  it('uses an unavailable-context placeholder instead of fabricated referral demographics', async () => {
+    const care = new CareService(
+      { getPatientSummary: async () => { throw new Error('FHIR unavailable'); } } as any,
+      {} as any,
+      {} as any,
+    );
+
+    const result = await care.draftReferral('patient-1', 'Cardiology', 'Persistent symptoms need review.');
+    expect(result.referral.patient_summary_block).toContain('[patient context unavailable]');
+    expect(result.referral.relevant_conditions).toEqual([]);
+    expect(result.referral.relevant_medications).toEqual([]);
+    expect(result.referral.draft_text).toContain('RELEVANT ACTIVE CONDITIONS:\n[patient context unavailable]');
+    expect(result.requires_clinician_review).toBe(true);
+    expect(result.sections_failed).toContain('patient');
+  });
+
+  it('propagates partial FHIR summary status into handoff output', async () => {
+    const care = new CareService(
+      {
+        getPatientSummary: async () => ({
+          patient: { name: 'Synthetic Patient', age: 40, gender: 'female' },
+          active_conditions: [],
+          active_medications: [],
+          recent_vitals: [],
+          recent_encounters: [],
+          allergy_note: 'Unavailable',
+          generated_at: new Date().toISOString(),
+          synthetic_data: true,
+          sections_failed: ['medications'],
+          server_used: 'https://fallback.fhir.test',
+        }),
+      } as any,
+      {} as any,
+      {} as any,
+    );
+
+    const result = await care.generateHandoff('patient-1');
+    expect(result.sections_failed).toEqual(['medications']);
+    expect(result.server_used).toBe('https://fallback.fhir.test');
+  });
 });

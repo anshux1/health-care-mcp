@@ -51,4 +51,12 @@ describe('FhirService failover', () => {
     await expect(service.getPatient('missing-patient')).rejects.toThrow('PATIENT_NOT_FOUND');
     expect(getJson).toHaveBeenCalledTimes(1);
   });
+
+  it('rejects invalid patient IDs across allergy lookups instead of querying upstreams', async () => {
+    const getJson = vi.fn();
+    const service = new FhirService({ getJson } as any);
+
+    await expect(service.getAllergies('../secret')).rejects.toThrow('VALIDATION_ERROR');
+    expect(getJson).not.toHaveBeenCalled();
+  });
 });
