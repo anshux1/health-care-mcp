@@ -9,9 +9,9 @@ jobs:
   build-test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -28,14 +28,16 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # NitroStack's application-boundary tests build widget components during
+      # AppModule initialization, so the standalone export must exist first.
+      - name: Standalone widget build
+        run: npm run widget:build
+
       - name: Unit and integration tests
         run: npm test
 
       - name: Coverage gate
         run: npm run test:coverage
-
-      - name: Standalone widget build
-        run: npm run widget:build
 
       - name: Server build
         run: npm run build
