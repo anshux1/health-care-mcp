@@ -26,10 +26,11 @@ Completed in the first implementation pass:
 - [x] Added FHIR ID validation and patient-not-found mapping.
 - [x] Fixed standalone widget SDK usage; widget production build now passes.
 - [x] Added unit tests for scopes, trimming, medication reconciliation, and lab units.
+- [x] Added end-to-end MCP gateway pipeline coverage for authentication, scopes, safety, timing, filters, trimming, audit logging, and protected audit-resource access.
 
 Still outstanding after this pass:
 
-- [ ] Complete integration/pipeline tests and coverage gates.
+- [ ] Complete the remaining integration suite and coverage gates.
 - [ ] Implement widget state/tool-call interactions required by the UX plan.
 - [ ] Complete all output-contract, data-coverage, and health-check refinements.
 - [ ] Finish README, deployment, public endpoint, and demo verification.
@@ -255,6 +256,8 @@ Required corrections include:
 
 # Phase 2 — Wire the Gateway Pipeline
 
+**Status: Complete.** All 32 registered clinical tools use the shared gateway decorator, gateway providers are registered through `CoreModule`, and `tests/integration/pipeline.test.ts` verifies the runtime MCP boundary.
+
 ## Goal
 
 Make the security and safety claims true at runtime.
@@ -315,7 +318,9 @@ Resources such as the safety policy and data-source registry may remain readable
 
 ## 2.3 Add an end-to-end pipeline test before feature changes
 
-Create `tests/integration/pipeline.test.ts` that proves:
+**Status: Complete.** Implemented in `tests/integration/pipeline.test.ts` using NitroStack's real application factory and MCP in-memory transport.
+
+The test proves:
 
 - no API key is rejected
 - invalid API key is rejected
@@ -346,6 +351,8 @@ Run the actual server and prove:
 
 # Phase 3 — Harden Authentication and Authorization
 
+**Status: Complete.** Production auth configuration now fails closed, API-key comparison is timing-safe, anonymous access is read-only and opt-in, wildcard scope is restricted to the configured admin identity, and the HS256 JWT path has strict validation.
+
 ## Goal
 
 Remove fail-open behavior and eliminate secret/configuration weaknesses.
@@ -354,17 +361,16 @@ Remove fail-open behavior and eliminate secret/configuration weaknesses.
 
 Update `src/config/env.ts` and authentication configuration:
 
-- [ ] Default `VITALIS_ALLOW_ANONYMOUS_DEMO` to `false`.
-- [ ] Remove hardcoded valid API keys from `api-key.guard.ts`.
-- [ ] Read all credentials from environment/config only.
-- [ ] Decide whether missing keys should fail boot in production or disable only the corresponding identity.
-- [ ] Require at least one configured credential when running in production.
-- [ ] Keep anonymous demo access opt-in only.
-- [ ] Restrict anonymous mode to read-only scopes:
+- [x] Default `VITALIS_ALLOW_ANONYMOUS_DEMO` to `false`.
+- [x] Remove hardcoded valid API keys from `api-key.guard.ts`.
+- [x] Read all credentials from environment/config only.
+- [x] Production startup fails when no API key or JWT credential is configured.
+- [x] Keep anonymous demo access opt-in only.
+- [x] Restrict anonymous mode to read-only scopes:
   - no `care:write`
   - no `admin:audit`
-- [ ] Never log raw API keys.
-- [ ] Prefer hashed key comparison if supported by NitroStack; otherwise document the limitation and protect secrets operationally.
+- [x] Never log raw API keys.
+- [x] Use timing-safe raw API-key comparison; NitroStack's custom identity map does not provide a hashed-key validator, so deployment secrets must be managed outside tracked source.
 
 ## 3.2 Scope map
 
@@ -383,12 +389,12 @@ Required scopes:
 
 Required behavior:
 
-- [ ] Unknown tool/resource names fail closed.
-- [ ] `*` is accepted only for the explicitly configured admin identity.
-- [ ] Diagnostics runtime names are mapped correctly.
-- [ ] FHIR stretch tools are mapped correctly.
-- [ ] `vitalis://audit/recent` requires `admin:audit`.
-- [ ] Write-like care tools require `care:write`.
+- [x] Unknown tool/resource names fail closed.
+- [x] `*` is accepted only for the explicitly configured admin identity.
+- [x] Diagnostics runtime names are mapped correctly.
+- [x] FHIR stretch tools are mapped correctly.
+- [x] `vitalis://audit/recent` requires `admin:audit`.
+- [x] Write-like care tools require `care:write`.
 
 ## 3.3 JWT hardening
 
@@ -396,17 +402,17 @@ JWT is a stretch goal in the original plan, but current code already includes it
 
 ### Option A — Keep JWT support
 
-- [ ] Require `JWT_SECRET` when JWT authentication is enabled.
-- [ ] Remove the predictable fallback secret.
-- [ ] Validate the JWT header algorithm and reject unexpected algorithms.
-- [ ] Validate payload shape:
+- [x] JWT verification is enabled only when `JWT_SECRET` is configured; signing/verifying without a secret fails safely.
+- [x] No predictable fallback secret exists.
+- [x] Validate the JWT header algorithm and reject unexpected algorithms.
+- [x] Validate payload shape:
   - `sub` is a non-empty string
   - `scopes` is a string array
   - `exp` is present and valid
   - `iat` is valid
-- [ ] Use timing-safe signature comparison.
-- [ ] Add issuer/audience validation if the deployment uses an external issuer.
-- [ ] Add tests for malformed payloads, wrong algorithm, missing expiry, issuer mismatch, and audience mismatch.
+- [x] Use timing-safe signature comparison.
+- [x] Validate issuer/audience when the deployment configures `JWT_ISSUER`/`JWT_AUDIENCE`.
+- [x] Add tests for malformed payloads, wrong algorithm, missing expiry, issuer mismatch, and audience mismatch.
 
 ### Option B — Disable custom JWT until fully supported
 

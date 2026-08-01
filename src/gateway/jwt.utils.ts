@@ -9,6 +9,8 @@ export interface JwtPayload {
   scopes: string[];
   iat: number;
   exp: number;
+  iss?: string;
+  aud?: string | string[];
 }
 
 function base64UrlEncode(str: string | Buffer): string {
@@ -27,10 +29,22 @@ function base64UrlDecode(str: string): string {
   return Buffer.from(base64, 'base64').toString('utf-8');
 }
 
+function decodeJsonSegment(segment: string): unknown {
+  // Buffer.from(..., 'base64') is deliberately permissive, so reject
+  // non-base64url input before decoding to avoid accepting malformed tokens.
+  if (!/^[A-Za-z0-9_-]+$/.test(segment)) return null;
+  try {
+    return JSON.parse(base64UrlDecode(segment));
+  } catch {
+    return null;
+  }
+}
+
 function configuredSecret(override?: string): string {
-  const secret = override ?? env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET is required before signing or verifying JWTs.');
+  const configured = override ?? env.JWT_SECRET;
+  const secret = typeof configured === 'string' ? configured.trim() : '';
+  if (!secret || Buffer.byteLength(secret, 'utf8') < 16) {
+    throw new Error('JWT_SECRET with at least 16 bytes is required before signing or verifying JWTs.');
   }
   return secret;
 }
@@ -46,6 +60,8 @@ export function signJwt(
 
   const fullPayload: JwtPayload = {
     ...payload,
+    ...(env.JWT_ISSUER ? { iss: env.JWT_ISSUER } : {}),
+    ...(env.JWT_AUDIENCE ? { aud: env.JWT_AUDIENCE } : {}),
     iat: now,
     exp: now + expiresInSeconds,
   };
@@ -70,8 +86,9 @@ export function verifyJwt(token: string, secretOverride?: string): JwtPayload | 
     if (parts.length !== 3) return null;
 
     const [encodedHeader, encodedPayload, encodedSignature] = parts;
-    const header = JSON.parse(base64UrlDecode(encodedHeader)) as { alg?: string; typ?: string };
-    if (header.alg !== 'HS256' || header.typ !== 'JWT') return null;
+    if (!/^[A-Za-z0-9_-]+$/.test(encodedSignature)) return null;
+    const header = decodeJsonSegment(encodedHeader) as { alg?: string; typ?: string } | null;
+    if (!header || header.alg !== 'HS256' || header.typ !== 'JWT') return null;
 
     const expectedSignature = base64UrlEncode(
       crypto
@@ -88,22 +105,44 @@ export function verifyJwt(token: string, secretOverride?: string): JwtPayload | 
       return null;
     }
 
-    const payload = JSON.parse(base64UrlDecode(encodedPayload)) as Partial<JwtPayload>;
+    const payload = decodeJsonSegment(encodedPayload) as Partial<JwtPayload> | null;
+    const issuedAt = payload?.iat;
+    const expiresAt = payload?.exp;
     if (
+      !payload ||
       typeof payload.sub !== 'string' ||
-      payload.sub.length === 0 ||
+      payload.sub.trim().length === 0 ||
       !Array.isArray(payload.scopes) ||
-      payload.scopes.some((scope) => typeof scope !== 'string') ||
-      typeof payload.iat !== 'number' ||
-      typeof payload.exp !== 'number'
+      payload.scopes.some((scope) => typeof scope !== 'string' || scope.trim().length === 0) ||
+      typeof issuedAt !== 'number' ||
+      typeof expiresAt !== 'number' ||
+      !Number.isSafeInteger(issuedAt) ||
+      !Number.isSafeInteger(expiresAt) ||
+      issuedAt <= 0 ||
+      expiresAt <= issuedAt ||
+      (payload.iss !== undefined && typeof payload.iss !== 'string') ||
+      (payload.aud !== undefined &&
+        typeof payload.aud !== 'string' &&
+        (!Array.isArray(payload.aud) || payload.aud.some((audience) => typeof audience !== 'string')))
     ) {
       return null;
     }
 
-    const now = Math.floor(Date.now() / 1000);
-    if (now >= payload.exp) return null;
+    if (env.JWT_ISSUER && payload.iss !== env.JWT_ISSUER) return null;
 
-    return payload as JwtPayload;
+    if (env.JWT_AUDIENCE) {
+      const audiences = Array.isArray(payload.aud) ? payload.aud : [payload.aud];
+      if (!audiences.includes(env.JWT_AUDIENCE)) return null;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (now >= expiresAt) return null;
+
+    return {
+      ...payload,
+      sub: payload.sub.trim(),
+      scopes: payload.scopes.map((scope) => scope.trim()),
+    } as JwtPayload;
   } catch {
     return null;
   }

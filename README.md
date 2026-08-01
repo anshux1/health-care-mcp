@@ -125,11 +125,15 @@ npm install
 
 Configure `.env` environment variables (see `.env.example`):
 ```env
-API_KEY_CLINICIAN=vk_live_clinician_demo_key_01
-API_KEY_READONLY=vk_live_readonly_demo_key_02
-API_KEY_ADMIN=vk_live_admin_demo_key_03
+API_KEY_CLINICIAN=replace-with-clinician-key
+API_KEY_READONLY=replace-with-readonly-key
+API_KEY_ADMIN=replace-with-admin-key
 VITALIS_ALLOW_ANONYMOUS_DEMO=false
+# Optional JWT authentication; setting JWT_SECRET enables HS256 verification.
+# JWT_SECRET=replace-with-a-random-32-byte-secret
 ```
+
+Production startup requires at least one configured API key or `JWT_SECRET`. Anonymous demo access is disabled by default and, when explicitly enabled, is limited to read-only scopes.
 
 ### Running Locally
 ```bash

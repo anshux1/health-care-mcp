@@ -41,7 +41,12 @@ const envSchema = z.object({
   API_KEY_READONLY: emptyToUndefined(z.string().min(8).optional()),
   API_KEY_ADMIN: emptyToUndefined(z.string().min(8).optional()),
   VITALIS_ALLOW_ANONYMOUS_DEMO: boolFromString(false),
+  // JWT is enabled when JWT_SECRET is configured. Issuer/audience checks are
+  // optional and become mandatory when the corresponding deployment setting is
+  // present.
   JWT_SECRET: emptyToUndefined(z.string().min(16).optional()),
+  JWT_ISSUER: emptyToUndefined(z.string().min(1).optional()),
+  JWT_AUDIENCE: emptyToUndefined(z.string().min(1).optional()),
 
   // Upstream APIs (§4.1 — all verified live)
   RXNORM_BASE_URL: emptyToUndefined(z.string().url().default('https://rxnav.nlm.nih.gov/REST')),
@@ -69,6 +74,38 @@ const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+export type AuthEnvironmentConfig = Pick<
+  Env,
+  | 'NODE_ENV'
+  | 'API_KEY_CLINICIAN'
+  | 'API_KEY_READONLY'
+  | 'API_KEY_ADMIN'
+  | 'JWT_SECRET'
+>;
+
+/**
+ * Returns deployment-time authentication configuration errors without reading
+ * process.env. Keeping this pure makes the production fail-closed rule easy to
+ * test without terminating the Vitest process.
+ */
+export function getAuthConfigurationErrors(config: AuthEnvironmentConfig): string[] {
+  if (config.NODE_ENV !== 'production') return [];
+
+  const hasConfiguredCredential = Boolean(
+    config.API_KEY_CLINICIAN ||
+      config.API_KEY_READONLY ||
+      config.API_KEY_ADMIN ||
+      config.JWT_SECRET,
+  );
+
+  return hasConfiguredCredential
+    ? []
+    : [
+        'Production authentication requires at least one configured API key or JWT_SECRET. ' +
+          'Anonymous access cannot be used as the only production authentication mode.',
+      ];
+}
+
 function loadEnv(): Env {
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
@@ -78,6 +115,13 @@ function loadEnv(): Env {
     );
     process.exit(1);
   }
+
+  const authErrors = getAuthConfigurationErrors(result.data);
+  if (authErrors.length > 0) {
+    console.error('❌ Invalid authentication configuration:', JSON.stringify(authErrors, null, 2));
+    process.exit(1);
+  }
+
   return result.data;
 }
 

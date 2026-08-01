@@ -7,6 +7,7 @@
  * variables (API_KEY_CLINICIAN, API_KEY_READONLY, API_KEY_ADMIN).
  */
 import { Guard, ExecutionContext, Injectable } from '@nitrostack/core';
+import crypto from 'node:crypto';
 import { env } from '../config/env.js';
 import { verifyJwt } from './jwt.utils.js';
 import { getRequestHeaders } from './request-context.js';
@@ -14,12 +15,16 @@ import { getRequestHeaders } from './request-context.js';
 export interface AuthContext {
   subject: string;
   scopes: string[];
+  /** Only the explicitly configured admin API-key identity may use wildcard scope. */
+  isAdmin?: boolean;
+  authMethod?: 'api_key' | 'jwt' | 'anonymous';
 }
 
 type CredentialDefinition = {
   envKey: keyof typeof env;
   subject: string;
   scopes: string[];
+  isAdmin?: boolean;
 };
 
 const CREDENTIALS: CredentialDefinition[] = [
@@ -45,6 +50,7 @@ const CREDENTIALS: CredentialDefinition[] = [
     envKey: 'API_KEY_ADMIN',
     subject: 'admin_demo',
     scopes: ['*', 'admin:audit'],
+    isAdmin: true,
   },
 ];
 
@@ -77,13 +83,24 @@ function extractCredential(context: ExecutionContext): string | undefined {
   );
 }
 
+function timingSafeStringEqual(left: string, right: string): boolean {
+  // Compare fixed-size digests so the raw key length does not create an early
+  // return path. This is timing-safe comparison, not password hashing; keys
+  // must still be provisioned and stored through the deployment secret manager.
+  const leftDigest = crypto.createHash('sha256').update(left, 'utf8').digest();
+  const rightDigest = crypto.createHash('sha256').update(right, 'utf8').digest();
+  return crypto.timingSafeEqual(leftDigest, rightDigest);
+}
+
 function findConfiguredApiKey(key: string): AuthContext | undefined {
   for (const definition of CREDENTIALS) {
     const configured = env[definition.envKey];
-    if (configured && key === configured) {
+    if (typeof configured === 'string' && timingSafeStringEqual(key, configured)) {
       return {
         subject: definition.subject,
         scopes: [...definition.scopes],
+        isAdmin: definition.isAdmin === true,
+        authMethod: 'api_key',
       };
     }
   }
@@ -105,6 +122,10 @@ export class ApiKeyGuard implements Guard {
         authInfo = {
           subject: jwtPayload.sub,
           scopes: [...jwtPayload.scopes],
+          // JWTs never inherit the API-key admin wildcard. A deployment must
+          // explicitly configure the admin API-key identity for '*' access.
+          isAdmin: false,
+          authMethod: 'jwt',
         };
       } else {
         authInfo = findConfiguredApiKey(credential);
@@ -115,6 +136,8 @@ export class ApiKeyGuard implements Guard {
       authInfo = {
         subject: 'anonymous_demo',
         scopes: ['triage:read', 'drugs:read', 'dx:read', 'research:read', 'fhir:read', 'care:read'],
+        isAdmin: false,
+        authMethod: 'anonymous',
       };
     }
 

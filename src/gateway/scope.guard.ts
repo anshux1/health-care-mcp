@@ -60,6 +60,11 @@ const TOOL_SCOPE_MAP: Record<string, string> = {
   care_draft_referral: 'care:write',
 };
 
+export function hasAdminScope(auth: AuthContext | undefined): boolean {
+  if (!auth?.isAdmin) return false;
+  return auth.scopes.includes('*') || auth.scopes.includes('admin:audit');
+}
+
 @Injectable()
 export class ScopeGuard implements Guard {
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -70,7 +75,7 @@ export class ScopeGuard implements Guard {
 
     const toolName = context.toolName;
     if (!toolName) {
-      return true;
+      throw new Error('SCOPE_DENIED: No authorization policy is defined for an unnamed tool.');
     }
 
     const requiredScope = TOOL_SCOPE_MAP[toolName];
@@ -79,7 +84,18 @@ export class ScopeGuard implements Guard {
     }
 
     if (auth.scopes.includes('*')) {
+      if (!auth.isAdmin) {
+        throw new Error(
+          `SCOPE_DENIED: Wildcard scope is restricted to the explicitly configured admin identity.`,
+        );
+      }
       return true;
+    }
+
+    if (requiredScope === 'admin:audit' && !hasAdminScope(auth)) {
+      throw new Error(
+        `SCOPE_DENIED: Accessing tool '${toolName}' requires the configured admin identity.`,
+      );
     }
 
     if (!auth.scopes.includes(requiredScope)) {

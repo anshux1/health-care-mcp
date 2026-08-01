@@ -11,6 +11,7 @@ import {
 import { AuditStore } from '../../gateway/audit.store.js';
 import { MetricsStore } from '../../gateway/metrics.store.js';
 import { ApiKeyGuard } from '../../gateway/api-key.guard.js';
+import { hasAdminScope } from '../../gateway/scope.guard.js';
 
 @Controller('core')
 @Injectable({ deps: [AuditStore, MetricsStore, ApiKeyGuard] })
@@ -80,8 +81,10 @@ All FHIR patient records are 100% synthetic (Synthea generator) and contain ZERO
   async getRecentAuditLogs(_uri: string, ctx: ExecutionContext) {
     await this.apiKeyGuard.canActivate(ctx);
     const auth = ctx.auth;
-    if (!auth || (!auth.scopes?.includes('admin:audit') && !auth.scopes?.includes('*'))) {
-      throw new Error('SCOPE_DENIED: Accessing vitalis://audit/recent requires scope admin:audit.');
+    if (!hasAdminScope(auth as any)) {
+      throw new Error(
+        'SCOPE_DENIED: Accessing vitalis://audit/recent requires the configured admin identity and scope admin:audit.',
+      );
     }
 
     const entries = this.auditStore.getRecentEntries();
