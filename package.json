@@ -14,6 +14,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live": "LIVE_API_TESTS=true vitest run tests/live",
+    "test:coverage": "vitest run --coverage",
+    "fixtures:record": "tsx scripts/record-fixtures.ts",
+    "typecheck": "tsc --noEmit",
+    "widget:build": "npm --prefix src/widgets run build",
+    "verify": "npm run typecheck && npm test && npm run widget:build && npm run build",
     "widget": "npm --prefix src/widgets"
   },
   "dependencies": {
@@ -25,6 +30,8 @@
   "devDependencies": {
     "@nitrostack/cli": "^1",
     "@types/node": "^22.10.0",
+    "@vitest/coverage-v8": "^4.1.10",
+    "tsx": "^4.23.1",
     "typescript": "^5.3.3",
     "vitest": "^4.1.10"
   },
